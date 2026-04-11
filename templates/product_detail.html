@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Product Details | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header">
+    <span class="eyebrow">Product view</span>
+    <h1>{{ product.NAME }}</h1>
+    <p>QR-based product lookup for stock visibility and decision support.</p>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <h3>Product details</h3>
+        <div class="mini-list">
+            <div class="mini-list-row"><span>Category</span><strong>{{ product.CATEGORY }}</strong></div>
+            <div class="mini-list-row"><span>Price</span><strong>Rs. {{ "%.2f"|format(product.PRICE) }}</strong></div>
+            <div class="mini-list-row"><span>Quantity</span><strong>{{ product.QUANTITY }}</strong></div>
+            <div class="mini-list-row"><span>Reorder level</span><strong>{{ product.REORDER_LEVEL or 10 }}</strong></div>
+            <div class="mini-list-row"><span>Branch</span><strong>{{ product.BRANCH_NAME or '-' }}</strong></div>
+            <div class="mini-list-row"><span>Supplier</span><strong>{{ product.SUPPLIER_NAME or '-' }}</strong></div>
+            <div class="mini-list-row"><span>Stock status</span><strong>{{ stock_status }}</strong></div>
+        </div>
+        <div class="form-actions top-gap">
+            <a class="btn btn-primary" href="{{ url_for('generate_product_qr', product_id=product.PRODUCT_ID) }}">Generate QR</a>
+            <a class="btn btn-secondary" href="{{ url_for('products') }}">Back to Products</a>
+        </div>
+    </article>
+
+    <article class="feature-card">
+        <h3>Visual + QR</h3>
+        {% if product.IMAGE_URL %}
+            <img class="chart-image top-gap" src="{{ product.IMAGE_URL }}" alt="{{ product.NAME }}">
+        {% endif %}
+        {% if qr_filename %}
+            <img class="qr-preview" src="{{ url_for('static', filename='qr/' ~ qr_filename) }}" alt="Product QR code">
+            <p>This QR opens <code>/product/{{ product.PRODUCT_ID }}</code>.</p>
+        {% else %}
+            <p>Generate a QR code to create a scan-ready product link.</p>
+        {% endif %}
+    </article>
+</section>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Edit Product | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header">
+    <span class="eyebrow">Update inventory</span>
+    <h1>Edit {{ product.NAME }}.</h1>
+</section>
+<form class="form-card" method="post">
+    <label>Product Name
+        <input type="text" name="name" value="{{ product.NAME }}" required>
+    </label>
+    <label>Category
+        <select name="category" required>
+            {% for category in categories %}
+                <option value="{{ category }}" {% if product.CATEGORY == category %}selected{% endif %}>{{ category }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>Price
+        <input type="number" step="0.01" min="0" name="price" value="{{ product.PRICE }}" required>
+    </label>
+    <label>Quantity
+        <input type="number" min="0" name="quantity" value="{{ product.QUANTITY }}" required>
+    </label>
+    <div class="form-actions">
+        <button class="btn btn-primary" type="submit">Update Product</button>
+        <a class="btn btn-secondary" href="{{ url_for('products') }}">Cancel</a>
+    </div>
+</form>
+{% endblock %}

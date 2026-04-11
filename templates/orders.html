@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Orders | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header">
+    <span class="eyebrow">Orders</span>
+    <h1>{% if current_user.role in ['admin', 'manager'] %}Order management{% else %}Your order history{% endif %}</h1>
+    <p>Orders are created only after checkout confirmation, and stock is reduced after a successful order.</p>
+</section>
+
+<section class="feature-card">
+    <div class="order-stack">
+        {% for order in orders %}
+        <article class="order-card {% if focus_order and focus_order.ORDER_ID == order.ORDER_ID %}order-card-focus{% endif %}">
+            <div class="section-row">
+                <div>
+                    <h3>Order #{{ order.ORDER_ID }}</h3>
+                    <p class="auth-helper">Placed by {{ order.USERNAME }} on {{ order.CREATED_AT }}</p>
+                </div>
+                <div class="order-meta">
+                    <span class="role-badge role-{{ 'admin' if order.STATUS in ['Confirmed', 'Packed', 'Shipped', 'Delivered'] else 'guest' }}">{{ order.STATUS|upper }}</span>
+                    <strong>Rs. {{ "%.2f"|format(order.TOTAL_AMOUNT) }}</strong>
+                </div>
+            </div>
+
+            {% if current_user.role in ['admin', 'manager'] %}
+            <form class="inline-form top-gap" method="post" action="{{ url_for('update_order_status', order_id=order.ORDER_ID) }}">
+                <select name="status">
+                    {% for status in ['Pending', 'Confirmed', 'Packed', 'Shipped', 'Delivered', 'Cancelled'] %}
+                        <option value="{{ status }}" {% if order.STATUS == status %}selected{% endif %}>{{ status }}</option>
+                    {% endfor %}
+                </select>
+                <button class="btn btn-secondary" type="submit">Update Status</button>
+            </form>
+            {% endif %}
+
+            <div class="table-shell top-gap">
+                <table>
+                    <thead><tr><th>Product</th><th>Category</th><th>Unit Price</th><th>Qty</th><th>Line Total</th></tr></thead>
+                    <tbody>
+                        {% for item in order.ITEMS %}
+                        <tr>
+                            <td>{{ item.PRODUCT_NAME }}</td>
+                            <td>{{ item.CATEGORY }}</td>
+                            <td>Rs. {{ "%.2f"|format(item.UNIT_PRICE) }}</td>
+                            <td>{{ item.QUANTITY }}</td>
+                            <td>Rs. {{ "%.2f"|format(item.LINE_TOTAL) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5">No order items found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </article>
+        {% else %}
+        <div class="soft-empty">No orders found yet.</div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

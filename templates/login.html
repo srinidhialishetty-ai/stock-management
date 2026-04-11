@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Login | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="auth-shell">
+    <div class="auth-intro">
+        <span class="eyebrow">Access Control</span>
+        <h1>Choose how you want to enter the stock management workspace.</h1>
+        <p>Sign in with your assigned credentials. Guest mode offers limited preview access without management tools.</p>
+        <div class="insight-list">
+            <div class="insight-item"><strong>Admin Access:</strong> upload inventory, manage data, share catalogs, and review orders.</div>
+            <div class="insight-item"><strong>Manager Access:</strong> monitor analytics, inventory health, and order execution.</div>
+            <div class="insight-item"><strong>User Access:</strong> open shared catalogs and place stock requests.</div>
+            <div class="insight-item"><strong>Guest Access:</strong> limited preview access only.</div>
+        </div>
+    </div>
+    <form class="auth-card" method="post">
+        <div class="section-row">
+            <a class="btn btn-secondary" href="{{ url_for('register') }}">Register as New User</a>
+            <a class="btn btn-secondary" href="{{ url_for('guest_login') }}">Continue as Guest</a>
+        </div>
+        <label>Username
+            <input type="text" name="username" placeholder="Enter your username" required>
+        </label>
+        <label>Password
+            <input type="password" name="password" placeholder="Enter your password" required>
+        </label>
+        <button class="btn btn-primary" type="submit">Login as Existing User</button>
+        <p class="auth-helper">Use the username and password assigned to your role.</p>
+    </form>
+</section>
+{% endblock %}

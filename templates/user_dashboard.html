@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}User Dashboard | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header user-hero">
+    <span class="eyebrow">User workspace</span>
+    <h1>Welcome, {{ current_user.username }}.</h1>
+    <p>Open the admin-shared catalog, build your cart, checkout with stock-safe ordering, and track your own order history.</p>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card user-welcome" id="catalog-access">
+        <span class="eyebrow">Catalog access</span>
+        <h3>Browse shared inventory</h3>
+        <p>You can view shared catalog data, add items to cart, and finish orders through checkout. Upload, edit, delete, and QR generation remain admin-only.</p>
+        {% if latest_share %}
+            <div class="form-actions">
+                <a class="btn btn-primary" href="{{ url_for('catalog', token=latest_share.TOKEN) }}">View Latest Shared Catalog</a>
+                <a class="btn btn-secondary" href="{{ url_for('analytics') }}">Catalog Analytics</a>
+            </div>
+            <p class="auth-helper top-gap">Latest shared link: {{ latest_share_link }}</p>
+        {% endif %}
+    </article>
+    <article class="feature-card" id="view-report">
+        <span class="eyebrow">Shared access</span>
+        <h3>Open shared catalog</h3>
+        <p>Paste the shared catalog link or token from admin.</p>
+        <form class="inline-form stacked" method="post" action="{{ url_for('view_data_lookup') }}">
+            <input type="text" name="qr_token" placeholder="Paste /catalog/... link or token" required>
+            <button class="btn btn-primary" type="submit">Open Catalog</button>
+        </form>
+    </article>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <h3>How ordering works</h3>
+        <div class="insight-list">
+            <div class="insight-item">Admin uploads inventory and generates a catalog share link or QR code.</div>
+            <div class="insight-item">You open the shared catalog, browse products, and add quantities to your cart.</div>
+            <div class="insight-item">Stock is checked again at checkout, then reduced only after your order is confirmed.</div>
+        </div>
+    </article>
+    <article class="feature-card">
+        <h3>Cart snapshot</h3>
+        <div class="mini-list">
+            <div class="mini-list-row"><span>Items in cart</span><strong>{{ cart.count }}</strong></div>
+            <div class="mini-list-row"><span>Subtotal</span><strong>Rs. {{ "%.2f"|format(cart.subtotal) }}</strong></div>
+        </div>
+        <div class="form-actions top-gap">
+            <a class="btn btn-primary" href="{{ url_for('cart') }}">Open Cart</a>
+            <a class="btn btn-secondary" href="{{ url_for('checkout') }}">Go to Checkout</a>
+        </div>
+    </article>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <h3>Recently viewed catalogs</h3>
+        <div class="mini-list">
+            {% for report in viewed_reports %}
+                <div class="mini-list-row"><span>{{ report.filename }}</span><strong>{{ report.rows }} items</strong></div>
+            {% else %}
+                <div class="mini-list-row"><span>No catalogs opened yet</span><strong>Waiting for share</strong></div>
+            {% endfor %}
+        </div>
+    </article>
+</section>
+
+<section class="feature-card">
+    <div class="section-row">
+        <h3>Your recent orders</h3>
+        <a class="btn btn-secondary" href="{{ url_for('orders') }}">View Orders</a>
+    </div>
+    <div class="table-shell">
+        <table>
+            <thead><tr><th>Order</th><th>Status</th><th>Total</th><th>Items</th><th>Date</th></tr></thead>
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td>#{{ order.ORDER_ID }}</td>
+                    <td>{{ order.STATUS }}</td>
+                    <td>Rs. {{ "%.2f"|format(order.TOTAL_AMOUNT) }}</td>
+                    <td>{{ order.ITEMS|length }}</td>
+                    <td>{{ order.CREATED_AT }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5">No orders placed yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

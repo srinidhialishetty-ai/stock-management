@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Sales | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header">
+    <span class="eyebrow">Sales management</span>
+    <h1>Track sold items and maintain accurate stock counts.</h1>
+    <p>Each recorded sale reduces inventory automatically and preserves a clean transaction history.</p>
+</section>
+
+<section class="feature-card">
+    <div class="section-row wrap">
+        <form class="inline-form" method="get" action="{{ url_for('sales') }}">
+            <select name="product_id">
+                <option value="">All products</option>
+                {% for product in products %}
+                    <option value="{{ product.PRODUCT_ID }}" {% if selected_product_id == product.PRODUCT_ID|string %}selected{% endif %}>
+                        {{ product.NAME }}
+                    </option>
+                {% endfor %}
+            </select>
+            <input type="date" name="date_from" value="{{ date_from }}">
+            <input type="date" name="date_to" value="{{ date_to }}">
+            <button class="btn btn-secondary" type="submit">Filter</button>
+        </form>
+        <a class="btn btn-primary" href="{{ url_for('add_sale') }}">Record Sale</a>
+    </div>
+    <div class="table-shell">
+        <table>
+            <thead>
+                <tr>
+                    <th>Sale ID</th>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>Quantity</th>
+                    <th>Total Amount</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sale in sales %}
+                <tr>
+                    <td>#{{ sale.SALE_ID }}</td>
+                    <td>{{ sale.PRODUCT_NAME }}</td>
+                    <td>{{ sale.CATEGORY }}</td>
+                    <td>{{ sale.QUANTITY }}</td>
+                    <td>Rs. {{ "%.2f"|format(sale.TOTAL_AMOUNT) }}</td>
+                    <td>{{ sale.SALE_DATE.strftime('%d %b %Y') if sale.SALE_DATE else '-' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6">No sales recorded yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

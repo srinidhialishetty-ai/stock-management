@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header admin-hero">
+    <span class="eyebrow">Admin control center</span>
+    <h1>Manage uploads, inventory, reports, and QR access.</h1>
+    <p>Welcome, {{ current_user.username }}. This dashboard is built for system-wide inventory control and report distribution.</p>
+</section>
+
+<section class="dashboard-grid">
+    <article class="dashboard-card admin-card"><span>Total uploaded reports</span><h2>{{ total_reports }}</h2><p>Reports generated from successful uploads this session.</p></article>
+    <article class="dashboard-card"><span>Total inventory rows</span><h2>{{ metrics.total_products }}</h2><p>All uploaded line items across the system.</p></article>
+    <article class="dashboard-card"><span>Total stock</span><h2>{{ metrics.total_stock_units }}</h2><p>Combined available units across all records.</p></article>
+    <article class="dashboard-card"><span>Low stock alerts</span><h2>{{ metrics.low_stock_items }}</h2><p>Items that need admin attention.</p></article>
+</section>
+
+<section class="grid-three admin-toolbelt">
+    <article class="feature-card">
+        <span class="eyebrow">Upload</span>
+        <h3>Upload new dataset</h3>
+        <p>Import flexible Excel files or add manual inventory records.</p>
+        <a class="btn btn-primary" href="{{ url_for('upload') }}">Upload Data</a>
+    </article>
+    <article class="feature-card">
+        <span class="eyebrow">Inventory</span>
+        <h3>Manage inventory records</h3>
+        <p>Edit or delete uploaded inventory rows from one admin table.</p>
+        <a class="btn btn-secondary" href="{{ url_for('manage_data') }}">Manage Data</a>
+    </article>
+    <article class="feature-card">
+        <span class="eyebrow">Analytics</span>
+        <h3>Analytics overview</h3>
+        <p>Review system-wide charts, decision support, and low-stock analysis.</p>
+        <a class="btn btn-secondary" href="{{ url_for('analytics') }}">Open Analytics</a>
+    </article>
+</section>
+
+<section class="grid-two" id="share-access">
+    <article class="feature-card">
+        <div class="section-row">
+            <div>
+                <span class="eyebrow">Share access</span>
+                <h3>Shared catalog handoff</h3>
+            </div>
+            <a class="btn btn-primary" href="{{ url_for('generate_catalog_share') }}">Generate Share Link</a>
+        </div>
+        {% if latest_share %}
+            <div class="mini-list">
+                {% if latest_uploaded_report %}
+                    <div class="mini-list-row"><span>Latest uploaded file</span><strong>{{ latest_uploaded_report.SOURCE_FILE_NAME }}</strong></div>
+                    <div class="mini-list-row"><span>Latest report id</span><strong>{{ latest_uploaded_report.REPORT_ID }}</strong></div>
+                {% endif %}
+                <div class="mini-list-row"><span>Catalog title</span><strong>{{ latest_share.TITLE }}</strong></div>
+                <div class="mini-list-row"><span>Status</span><strong>{{ latest_share.STATUS|upper }}</strong></div>
+                <div class="mini-list-row"><span>Token</span><strong>{{ latest_share.TOKEN }}</strong></div>
+            </div>
+            <label class="top-gap">Copy share link
+                <input type="text" value="{{ latest_share_link }}" readonly onclick="this.select()">
+            </label>
+            <div class="form-actions top-gap">
+                <a class="btn btn-secondary" href="{{ url_for('catalog', token=latest_share.TOKEN) }}">Preview Catalog</a>
+                <a class="btn btn-secondary" href="{{ url_for('orders') }}">View Orders</a>
+            </div>
+        {% else %}
+            <p>No shared catalog is active yet. Upload inventory data, then generate a share link for that exact dataset.</p>
+        {% endif %}
+    </article>
+    <article class="feature-card">
+        <h3>Latest QR access</h3>
+        {% if latest_share and latest_share.QR_FILENAME %}
+            <img class="qr-preview" src="{{ url_for('static', filename='qr/' ~ latest_share.QR_FILENAME) }}" alt="Shared catalog QR">
+        {% else %}
+            <p>Use a report action below to generate QR access, or share the latest catalog link directly.</p>
+        {% endif %}
+        <div class="mini-list top-gap">
+            {% for share in shared_catalogs %}
+                <div class="mini-list-row"><span>{{ share.TITLE }}</span><strong>{{ share.STATUS|upper }}</strong></div>
+            {% else %}
+                <div class="mini-list-row"><span>No shared catalogs yet</span><strong>-</strong></div>
+            {% endfor %}
+        </div>
+    </article>
+</section>
+
+<section class="grid-two" id="reports">
+    <article class="feature-card">
+        <div class="section-row">
+            <h3>Recent uploads and reports</h3>
+            <a class="btn btn-secondary" href="{{ url_for('upload') }}">New Upload</a>
+        </div>
+        <div class="table-shell">
+            <table>
+                <thead>
+                    <tr><th>Report</th><th>Rows</th><th>Created</th><th>QR</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    {% for report in reports %}
+                    <tr>
+                        <td>{{ report.filename }}</td>
+                        <td>{{ report.valid_rows }}</td>
+                        <td>{{ report.created_at }}</td>
+                        <td>{% if report.qr_filename %}<span class="status healthy">Ready</span>{% else %}<span class="status low">Not generated</span>{% endif %}</td>
+                        <td>
+                            <div class="row-actions">
+                                <a href="{{ url_for('report_view', report_id=report.id) }}">View</a>
+                                <a href="{{ url_for('generate_share', report_id=report.id) }}">Share Link</a>
+                                <a href="{{ url_for('generate_report_qr', report_id=report.id) }}">Generate QR</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5">No upload reports yet. Upload an Excel file to create the first report.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+
+    <article class="feature-card">
+        <h3>Low stock alerts</h3>
+        <div class="mini-list">
+            {% for row in recent_rows if row.QUANTITY <= 10 %}
+                <div class="mini-list-row"><span>{{ row.PRODUCT_NAME }}</span><strong>{{ row.QUANTITY }} units</strong></div>
+            {% else %}
+                <div class="mini-list-row"><span>No urgent low-stock items in recent records</span><strong>Healthy</strong></div>
+            {% endfor %}
+        </div>
+    </article>
+</section>
+
+<section class="feature-card">
+    <div class="section-row">
+        <h3>Recent catalog orders</h3>
+        <a class="btn btn-secondary" href="{{ url_for('orders') }}">View All Orders</a>
+    </div>
+    <div class="table-shell">
+        <table>
+            <thead><tr><th>Order</th><th>User</th><th>Status</th><th>Items</th><th>Total</th><th>Date</th></tr></thead>
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td>#{{ order.ORDER_ID }}</td>
+                    <td>{{ order.USERNAME }}</td>
+                    <td>{{ order.STATUS }}</td>
+                    <td>{{ order.ITEMS|length }}</td>
+                    <td>Rs. {{ "%.2f"|format(order.TOTAL_AMOUNT) }}</td>
+                    <td>{{ order.CREATED_AT }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6">No user orders yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <h3>Top products</h3>
+        {% if decision_analytics.charts.top_products %}
+            <img class="chart-image" src="{{ decision_analytics.charts.top_products }}" alt="Top products chart">
+        {% else %}
+            <p>Upload inventory data to generate charts.</p>
+        {% endif %}
+    </article>
+    <article class="feature-card">
+        <h3>Management actions</h3>
+        <div class="action-grid">
+            <a class="action-tile" href="{{ url_for('upload') }}">Upload Excel</a>
+            <a class="action-tile" href="{{ url_for('manage_data') }}">Edit/Delete Data</a>
+            <a class="action-tile" href="{{ url_for('products') }}">Product QR Codes</a>
+            <a class="action-tile" href="{{ url_for('analytics') }}">Full Analytics</a>
+        </div>
+    </article>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <h3>Recent inventory rows</h3>
+        <div class="table-shell">
+            <table>
+                <thead><tr><th>Product</th><th>Category</th><th>Qty</th><th>Date</th></tr></thead>
+                <tbody>
+                    {% for row in recent_rows %}
+                    <tr><td>{{ row.PRODUCT_NAME }}</td><td>{{ row.CATEGORY }}</td><td class="{% if row.QUANTITY <= 10 %}low-stock{% endif %}">{{ row.QUANTITY }}</td><td>{{ row.ENTRY_DATE or '-' }}</td></tr>
+                    {% else %}
+                    <tr><td colspan="4">No uploaded inventory rows yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+    <article class="feature-card">
+        <h3>Recent activity</h3>
+        <div class="mini-list">
+            {% for activity in recent_activity %}
+                <div class="mini-list-row"><span>{{ activity.ACTION }}</span><strong>{{ activity.ACTOR_USERNAME }}</strong></div>
+            {% else %}
+                <div class="mini-list-row"><span>No recent admin activity</span><strong>-</strong></div>
+            {% endfor %}
+        </div>
+    </article>
+</section>
+
+<section class="feature-card">
+    <h3>Recent users</h3>
+    <div class="mini-list">
+        {% for user in users %}
+            <div class="mini-list-row"><span>{{ user.USERNAME }}</span><strong>{{ user.ROLE|upper }}</strong></div>
+        {% else %}
+            <div class="mini-list-row"><span>No users available</span><strong>-</strong></div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

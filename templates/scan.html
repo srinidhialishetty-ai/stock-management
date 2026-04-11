@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Scan QR | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header">
+    <span class="eyebrow">QR scanner</span>
+    <h1>Open a product from a QR code.</h1>
+    <p>Paste a scanned QR URL, JSON payload, or product ID. The app redirects to the product page.</p>
+</section>
+
+<form class="form-card" method="post">
+    <label>Scanned QR value
+        <textarea name="scan_value" rows="4" placeholder="/product/1 or full scanned URL" required></textarea>
+    </label>
+    <div class="form-actions">
+        <button class="btn btn-primary" type="submit">Open Product</button>
+        <a class="btn btn-secondary" href="{{ url_for('products') }}">Back to Products</a>
+    </div>
+</form>
+{% endblock %}

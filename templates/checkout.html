@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Checkout | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header user-hero">
+    <span class="eyebrow">Checkout</span>
+    <h1>Confirm your order.</h1>
+    <p>We validate live stock again before confirming. Inventory will reduce only after successful checkout.</p>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <h3>Order items</h3>
+        <div class="table-shell">
+            <table>
+                <thead><tr><th>Product</th><th>Price</th><th>Qty</th><th>Line total</th></tr></thead>
+                <tbody>
+                    {% for item in cart["items"] %}
+                    <tr>
+                        <td>{{ item.PRODUCT_NAME }}</td>
+                        <td>Rs. {{ "%.2f"|format(item.UNIT_PRICE) }}</td>
+                        <td>{{ item.QUANTITY }}</td>
+                        <td>Rs. {{ "%.2f"|format(item.UNIT_PRICE * item.QUANTITY) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+    <article class="feature-card">
+        <span class="eyebrow">Final review</span>
+        <h3>Checkout summary</h3>
+        <div class="mini-list">
+            <div class="mini-list-row"><span>Total items</span><strong>{{ cart.count }}</strong></div>
+            <div class="mini-list-row"><span>Subtotal</span><strong>Rs. {{ "%.2f"|format(cart.subtotal) }}</strong></div>
+        </div>
+        <form class="top-gap" method="post">
+            <button class="btn btn-primary" type="submit">Confirm Order</button>
+        </form>
+        <div class="form-actions top-gap">
+            <a class="btn btn-secondary" href="{{ url_for('cart') }}">Back to Cart</a>
+            <a class="btn btn-secondary" href="{{ url_for('user_dashboard') }}">Back to Dashboard</a>
+        </div>
+    </article>
+</section>
+{% endblock %}

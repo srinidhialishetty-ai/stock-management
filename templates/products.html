@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Inventory | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header">
+    <span class="eyebrow">Inventory management</span>
+    <h1>Control products, stock levels, imports, and QR references.</h1>
+    <p>Use manual entry, Excel upload, image upload architecture, or QR-based retrieval depending on your workflow.</p>
+</section>
+
+<section class="feature-card">
+    <div class="section-row wrap">
+        <form class="inline-form" method="get" action="{{ url_for('products') }}">
+            <input type="text" name="search" value="{{ search }}" placeholder="Search by product or category">
+            <select name="category">
+                <option value="">All categories</option>
+                {% for category in categories %}
+                    <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-secondary" type="submit">Filter</button>
+        </form>
+        <a class="btn btn-primary" href="{{ url_for('scan') }}">Scan QR</a>
+    </div>
+    <div class="table-shell">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Price</th>
+                    <th>Quantity</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                <tr>
+                    <td>{{ product.NAME }}</td>
+                    <td>{{ product.CATEGORY }}</td>
+                    <td>Rs. {{ "%.2f"|format(product.PRICE) }}</td>
+                    <td class="{% if product.QUANTITY <= 10 %}low-stock{% endif %}">
+                        {{ product.QUANTITY }}
+                        {% if product.QUANTITY <= 10 %}<span class="status low">Low stock</span>{% endif %}
+                    </td>
+                    <td>{{ product.CREATED_AT.strftime('%d %b %Y') if product.CREATED_AT and product.CREATED_AT.strftime else product.CREATED_AT or '-' }}</td>
+                    <td>
+                        <div class="row-actions">
+                            <a href="{{ url_for('product_detail', product_id=product.PRODUCT_ID) }}">View</a>
+                            <a href="{{ url_for('generate_product_qr', product_id=product.PRODUCT_ID) }}">QR</a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6">No products found. Add inventory or import an Excel file to get started.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="grid-three">
+    {% if current_user.role == 'admin' %}
+    <article class="feature-card">
+        <h3>Admin upload</h3>
+        <p>Admins can upload real-world Excel files from the upload section. Uploaded rows feed products, sales, analytics, and QR product viewing.</p>
+        <a class="btn btn-primary" href="{{ url_for('upload') }}">Upload Excel</a>
+    </article>
+    {% endif %}
+    <form class="feature-card" method="post" action="{{ url_for('qr_lookup') }}">
+        <h3>QR lookup</h3>
+        <p>Paste a scanned QR URL or product ID to open the product page.</p>
+        <textarea name="qr_data" rows="4" placeholder='/product/1' required></textarea>
+        <button class="btn btn-primary" type="submit">Fetch Product</button>
+    </form>
+</section>
+{% endblock %}

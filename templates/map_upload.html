@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Map Excel Columns | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header">
+    <span class="eyebrow">Excel column mapping</span>
+    <h1>Match your company file headers to the inventory schema.</h1>
+    <p>We normalized and auto-detected what we could. Please map any remaining fields so the upload can continue safely.</p>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <h3>Uploaded headers found</h3>
+        <div class="mini-list">
+            {% for header in uploaded_headers %}
+                <div class="mini-list-row"><span>{{ header }}</span><strong>Detected</strong></div>
+            {% endfor %}
+        </div>
+    </article>
+    <article class="feature-card">
+        <h3>Required fields missing</h3>
+        <div class="insight-list">
+            {% for field in missing_fields %}
+                <div class="insight-item">{{ field }}</div>
+            {% else %}
+                <div class="insight-item">All required fields were detected. Review and submit the mapping.</div>
+            {% endfor %}
+        </div>
+    </article>
+</section>
+
+<form class="form-card" method="post">
+    <h3>Manual mapping</h3>
+    {% for field in required_fields %}
+        <label>{{ field }}
+            <select name="{{ field }}" {% if field in required_core_fields %}required{% endif %}>
+                <option value="">{% if field in required_core_fields %}Select uploaded column{% else %}Optional: use default if blank{% endif %}</option>
+                {% for header in uploaded_headers %}
+                    <option value="{{ header }}" {% if auto_mapping.get(field) == header %}selected{% endif %}>{{ header }}</option>
+                {% endfor %}
+            </select>
+        </label>
+    {% endfor %}
+    <div class="form-actions">
+        <button class="btn btn-primary" type="submit">Import With Mapping</button>
+        <a class="btn btn-secondary" href="{{ url_for('upload') }}">Upload Different File</a>
+    </div>
+</form>
+{% endblock %}

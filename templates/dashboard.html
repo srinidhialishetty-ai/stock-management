@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Dashboard | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header">
+    <span class="eyebrow">Dashboard</span>
+    <h1>Welcome, {{ current_user.username }}.</h1>
+    <p>Track uploaded inventory, manage role-based access, and move directly from data entry to analytics without breaking workflow.</p>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <span class="eyebrow">Core System</span>
+        <h3>Reliable operational workflow</h3>
+        <p>The core layer handles authentication, role-based access, uploads, stored records, and analytics rendering. This is the stable working system.</p>
+    </article>
+    <article class="feature-card">
+        <span class="eyebrow">Enhancement Layer</span>
+        <h3>AI-style recommendations</h3>
+        <p>Recommendations are kept separate from the main workflow so the app remains dependable even before enough business data is available.</p>
+    </article>
+</section>
+
+<section class="dashboard-grid">
+    <article class="dashboard-card">
+        <span>Total products</span>
+        <h2>{{ metrics.total_products }}</h2>
+        <p>Uploaded inventory line items available in your current scope.</p>
+    </article>
+    <article class="dashboard-card">
+        <span>Total units in stock</span>
+        <h2>{{ metrics.total_stock_units }}</h2>
+        <p>Combined quantity from the records visible to your role.</p>
+    </article>
+    <article class="dashboard-card">
+        <span>Inventory value</span>
+        <h2>Rs. {{ "%.2f"|format(metrics.total_inventory_value) }}</h2>
+        <p>Total estimated value of the uploaded stock dataset.</p>
+    </article>
+    <article class="dashboard-card">
+        <span>Low-stock items</span>
+        <h2>{{ metrics.low_stock_items }}</h2>
+        <p>Products that should be reviewed for reorder decisions.</p>
+    </article>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <div class="section-row">
+            <h3>Recent uploaded inventory</h3>
+            <a href="{{ url_for('upload') }}" class="btn btn-secondary">Upload Data</a>
+        </div>
+        <div class="table-shell">
+            <table>
+                <thead>
+                    <tr><th>Product</th><th>Category</th><th>Price</th><th>Qty</th><th>Date</th></tr>
+                </thead>
+                <tbody>
+                    {% for row in recent_rows %}
+                    <tr>
+                        <td>{{ row.PRODUCT_NAME }}</td>
+                        <td>{{ row.CATEGORY }}</td>
+                        <td>Rs. {{ "%.2f"|format(row.PRICE) }}</td>
+                        <td class="{% if row.QUANTITY <= 10 %}low-stock{% endif %}">{{ row.QUANTITY }}</td>
+                        <td>{{ row.ENTRY_DATE or '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5">No uploaded data yet. Start with manual entry or Excel upload.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+
+    <article class="feature-card">
+        <div class="section-row">
+            <h3>Role access</h3>
+            <a href="{{ url_for('analytics') }}" class="btn btn-secondary">Open Analytics</a>
+        </div>
+        <div class="insight-list">
+            {% if current_user.role == 'admin' %}
+                <div class="insight-item">Admin access enabled. You can see all users, all uploaded inventory, and full-system analytics.</div>
+            {% elif current_user.role == 'user' %}
+                <div class="insight-item">User access enabled. You can upload your own inventory files and analyze your stored records.</div>
+            {% else %}
+                <div class="insight-item">Guest access enabled. You can upload temporary data and review analytics for this session only.</div>
+            {% endif %}
+            <div class="insight-item">Upload supports messy real-world Excel files, dynamic header detection, and analytics processing.</div>
+        </div>
+    </article>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <h3>Top products</h3>
+        {% if decision_analytics.charts.top_products %}
+            <img class="chart-image" src="{{ decision_analytics.charts.top_products }}" alt="Top products chart">
+        {% else %}
+            <p>Upload data to generate the top products chart.</p>
+        {% endif %}
+    </article>
+    <article class="feature-card">
+        <h3>Monthly sales trend</h3>
+        {% if decision_analytics.charts.monthly_sales %}
+            <img class="chart-image" src="{{ decision_analytics.charts.monthly_sales }}" alt="Monthly sales trend chart">
+        {% else %}
+            <p>Upload dated sales or stock movement data to generate trends.</p>
+        {% endif %}
+    </article>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <div class="section-row">
+            <h3>{{ insights.title }}</h3>
+            <span class="subtle-badge {% if insights.enabled %}subtle-badge-live{% else %}subtle-badge-muted{% endif %}">
+                {% if insights.enabled %}Enhancement Active{% else %}Waiting for Data{% endif %}
+            </span>
+        </div>
+        <div class="insight-list">
+            {% for message in insights.messages %}
+                <div class="insight-item">{{ message }}</div>
+            {% else %}
+                <div class="insight-item">Start recording sales to unlock business recommendations.</div>
+            {% endfor %}
+        </div>
+    </article>
+    <article class="feature-card">
+        <h3>{% if current_user.role == 'admin' %}Recent users{% else %}Quick actions{% endif %}</h3>
+        {% if current_user.role == 'admin' %}
+            <div class="table-shell">
+                <table>
+                    <thead>
+                        <tr><th>Username</th><th>Role</th><th>Created</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.USERNAME }}</td>
+                            <td>{{ user.ROLE|upper }}</td>
+                            <td>{{ user.CREATED_AT.strftime('%d %b %Y') if user.CREATED_AT and user.CREATED_AT.strftime else user.CREATED_AT }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3">No user records available.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="action-grid">
+                <a class="action-tile" href="{{ url_for('upload') }}">Upload data</a>
+                <a class="action-tile" href="{{ url_for('analytics') }}">View analytics</a>
+                <a class="action-tile" href="{{ url_for('contact') }}">Contact page</a>
+                <a class="action-tile" href="{{ url_for('logout') }}">Logout</a>
+            </div>
+        {% endif %}
+    </article>
+</section>
+{% endblock %}

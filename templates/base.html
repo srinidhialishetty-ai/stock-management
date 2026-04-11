@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Stock Management with Inventory Analysis{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="topbar">
+            <a class="brand" href="{{ url_for('index') }}">
+                <span class="brand-mark">SM</span>
+                <span>
+                    <strong>Stock Management</strong>
+                    <small>Inventory Analysis</small>
+                </span>
+            </a>
+            <nav class="nav-links">
+                <a href="{{ url_for('index') }}">Home</a>
+                {% if current_user.role == 'admin' %}
+                    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+                    <a href="{{ url_for('upload') }}">Upload Data</a>
+                    <a href="{{ url_for('analytics') }}">Analytics</a>
+                    <a href="{{ url_for('orders') }}">Orders</a>
+                    <a href="{{ url_for('admin_dashboard') }}#reports">Reports</a>
+                    <a href="{{ url_for('admin_dashboard') }}#share-access">Generate QR</a>
+                {% elif current_user.role == 'manager' %}
+                    <a href="{{ url_for('manager_dashboard') }}">Dashboard</a>
+                    <a href="{{ url_for('analytics') }}">Analytics</a>
+                    <a href="{{ url_for('orders') }}">Orders</a>
+                    <a href="{{ url_for('manage_data') }}">Inventory</a>
+                {% elif current_user.role == 'user' %}
+                    <a href="{{ url_for('user_dashboard') }}">Dashboard</a>
+                    <a href="{{ url_for('user_dashboard') }}#catalog-access">Shared Catalog</a>
+                    <a href="{{ url_for('analytics') }}">Analytics</a>
+                    <a href="{{ url_for('cart') }}">Cart{% if cart_state.count %} ({{ cart_state.count }}){% endif %}</a>
+                    <a href="{{ url_for('orders') }}">Orders</a>
+                {% elif current_user.role == 'guest' %}
+                    <a href="{{ url_for('guest_dashboard') }}">Dashboard</a>
+                    <a href="{{ url_for('guest_dashboard') }}#view-report">View Catalog</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}">Dashboard</a>
+                {% endif %}
+                <a href="{{ url_for('contact') }}">Contact</a>
+                {% if current_user.role %}
+                    <span class="role-badge role-{{ current_user.role }}">{{ current_user.role|upper }}</span>
+                {% endif %}
+                <button class="theme-toggle" type="button" id="theme-toggle" aria-label="Toggle day and night mode">
+                    <span class="theme-toggle-track">
+                        <span class="theme-toggle-thumb"></span>
+                    </span>
+                    <span id="theme-toggle-label">Night Mode</span>
+                </button>
+                {% if current_user.role %}
+                    <a class="nav-pill" href="{{ url_for('logout') }}">Logout</a>
+                {% else %}
+                    <a class="nav-pill" href="{{ url_for('login') }}">Login</a>
+                {% endif %}
+            </nav>
+        </header>
+
+        <main class="main-content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <section class="flash-stack">
+                        {% for category, message in messages %}
+                            <div class="flash flash-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </section>
+                {% endif %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer class="footer">
+            <div>
+                <h4>Stock Management with Inventory Analysis</h4>
+                <p>Practical stock control and business-friendly insights for growing retail teams.</p>
+            </div>
+            <div class="footer-links">
+                <a href="{{ url_for('index') }}">Home</a>
+                <a href="{{ url_for('index') }}#about">About</a>
+                <a href="{{ url_for('contact') }}">Contact</a>
+                <a href="{{ url_for('login') }}">Login</a>
+            </div>
+        </footer>
+    </div>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

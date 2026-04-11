@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Shared Catalog | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header user-hero">
+    <span class="eyebrow">Shared catalog</span>
+    <h1>{{ catalog.TITLE }}</h1>
+    <p>Browse the exact admin-shared dataset, build a cart, and place a confirmed checkout order. Stock changes only after checkout.</p>
+</section>
+
+<section class="dashboard-grid">
+    <article class="dashboard-card"><span>Products</span><h2>{{ catalog_metrics.total_products }}</h2><p>Items in this shared catalog.</p></article>
+    <article class="dashboard-card"><span>Available items</span><h2>{{ catalog_metrics.available_count }}</h2><p>Products still open for ordering.</p></article>
+    <article class="dashboard-card"><span>Low stock</span><h2>{{ catalog_metrics.low_stock_count }}</h2><p>Items near their reorder point.</p></article>
+    <article class="dashboard-card"><span>Catalog value</span><h2>Rs. {{ "%.2f"|format(catalog_metrics.inventory_value) }}</h2><p>Total live value of this shared batch.</p></article>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <div class="section-row">
+            <div>
+                <span class="eyebrow">Catalog access</span>
+                <h3>Shared token details</h3>
+            </div>
+            <span class="subtle-badge subtle-badge-live">Token {{ catalog.TOKEN }}</span>
+        </div>
+        <div class="mini-list">
+            <div class="mini-list-row"><span>Shared title</span><strong>{{ catalog.TITLE }}</strong></div>
+            <div class="mini-list-row"><span>Status</span><strong>{{ catalog.STATUS|upper }}</strong></div>
+            <div class="mini-list-row"><span>Created</span><strong>{{ catalog.CREATED_AT }}</strong></div>
+        </div>
+    </article>
+    <article class="feature-card">
+        <div class="section-row">
+            <div>
+                <span class="eyebrow">Checkout flow</span>
+                <h3>Your cart</h3>
+            </div>
+            {% if current_user.role == 'user' %}
+                <a class="btn btn-primary" href="{{ url_for('cart') }}">Open Cart{% if cart.count %} ({{ cart.count }}){% endif %}</a>
+            {% endif %}
+        </div>
+        {% if current_user.role == 'user' %}
+            <div class="mini-list">
+                <div class="mini-list-row"><span>Items selected</span><strong>{{ cart.count }}</strong></div>
+                <div class="mini-list-row"><span>Current subtotal</span><strong>Rs. {{ "%.2f"|format(cart.subtotal) }}</strong></div>
+            </div>
+        {% elif current_user.role == 'admin' or current_user.role == 'manager' %}
+            <p class="auth-helper">Management preview only. Users checkout from this shared catalog through cart and final confirmation.</p>
+        {% else %}
+            <p class="auth-helper">Guest access is read-only. Sign in as a user to add products to cart and place orders.</p>
+        {% endif %}
+    </article>
+</section>
+
+<section class="feature-card">
+    <div class="section-row">
+        <div>
+            <span class="eyebrow">Product browser</span>
+            <h3>Find the right items</h3>
+        </div>
+    </div>
+    <form class="catalog-filters" method="get">
+        <label>Search
+            <input type="text" name="search" value="{{ search }}" placeholder="Search product name">
+        </label>
+        <label>Category
+            <select name="category">
+                <option value="">All categories</option>
+                {% for category in filters.categories %}
+                    <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Stock level
+            <select name="stock_level">
+                <option value="">All stock levels</option>
+                <option value="low" {% if selected_stock_level == 'low' %}selected{% endif %}>Low stock</option>
+                <option value="out" {% if selected_stock_level == 'out' %}selected{% endif %}>Out of stock</option>
+            </select>
+        </label>
+        <label>Branch
+            <select name="branch">
+                <option value="">All branches</option>
+                {% for branch in filters.branches %}
+                    <option value="{{ branch }}" {% if selected_branch == branch %}selected{% endif %}>{{ branch }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Sort by
+            <select name="sort">
+                <option value="newest" {% if selected_sort == 'newest' %}selected{% endif %}>Newest</option>
+                <option value="price" {% if selected_sort == 'price' %}selected{% endif %}>Price</option>
+                <option value="stock" {% if selected_sort == 'stock' %}selected{% endif %}>Stock</option>
+                <option value="popularity" {% if selected_sort == 'popularity' %}selected{% endif %}>Popularity</option>
+            </select>
+        </label>
+        <div class="form-actions">
+            <button class="btn btn-primary" type="submit">Apply Filters</button>
+            <a class="btn btn-secondary" href="{{ url_for('catalog', token=catalog.TOKEN) }}">Reset</a>
+        </div>
+    </form>
+
+    <div class="catalog-grid top-gap">
+        {% for product in products %}
+            <article class="catalog-card">
+                {% if product.IMAGE_URL %}
+                    <img class="catalog-image" src="{{ product.IMAGE_URL }}" alt="{{ product.PRODUCT_NAME }}">
+                {% else %}
+                    <div class="catalog-image catalog-image-fallback">{{ product.PRODUCT_NAME[:1] }}</div>
+                {% endif %}
+                <div class="catalog-copy">
+                    <div class="section-row">
+                        <h4>{{ product.PRODUCT_NAME }}</h4>
+                        {% if product.QUANTITY <= 0 %}
+                            <span class="status low">Out of stock</span>
+                        {% elif product.QUANTITY <= product.REORDER_LEVEL %}
+                            <span class="status low">Low stock</span>
+                        {% else %}
+                            <span class="status healthy">Ready</span>
+                        {% endif %}
+                    </div>
+                    <p>{{ product.CATEGORY }}</p>
+                    <div class="mini-list compact-list">
+                        <div class="mini-list-row"><span>Price</span><strong>Rs. {{ "%.2f"|format(product.PRICE) }}</strong></div>
+                        <div class="mini-list-row"><span>Available</span><strong>{{ product.QUANTITY }}</strong></div>
+                        {% if product.BRANCH_NAME %}
+                            <div class="mini-list-row"><span>Branch</span><strong>{{ product.BRANCH_NAME }}</strong></div>
+                        {% endif %}
+                        {% if product.SUPPLIER_NAME %}
+                            <div class="mini-list-row"><span>Supplier</span><strong>{{ product.SUPPLIER_NAME }}</strong></div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if current_user.role == 'user' %}
+                    <form class="catalog-order-form" method="post" action="{{ url_for('add_to_cart', product_id=product.ID) }}">
+                        <input type="hidden" name="share_token" value="{{ catalog.TOKEN }}">
+                        <label>Quantity
+                            <input type="number" name="order_quantity" min="1" max="{{ product.QUANTITY }}" value="1" {% if product.QUANTITY <= 0 %}disabled{% endif %}>
+                        </label>
+                        <button class="btn btn-primary" type="submit" {% if product.QUANTITY <= 0 %}disabled{% endif %}>Add to Cart</button>
+                    </form>
+                {% else %}
+                    <p class="auth-helper">{% if current_user.role == 'guest' %}Read-only preview{% else %}Management preview{% endif %}</p>
+                {% endif %}
+            </article>
+        {% else %}
+            <div class="soft-empty">No products match the current filters for this shared catalog.</div>
+        {% endfor %}
+    </div>
+</section>
+
+{% if current_user.role == 'user' %}
+<section class="feature-card">
+    <div class="section-row">
+        <h3>Your recent orders from shared catalogs</h3>
+        <a class="btn btn-secondary" href="{{ url_for('orders') }}">View Full Order History</a>
+    </div>
+    <div class="mini-list">
+        {% for order in orders %}
+            <div class="mini-list-row"><span>Order #{{ order.ORDER_ID }} · {{ order.STATUS }}</span><strong>Rs. {{ "%.2f"|format(order.TOTAL_AMOUNT) }}</strong></div>
+        {% else %}
+            <div class="mini-list-row"><span>No orders yet</span><strong>-</strong></div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+{% endblock %}

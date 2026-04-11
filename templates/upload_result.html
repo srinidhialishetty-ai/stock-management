@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Upload Result | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header">
+    <span class="eyebrow">{% if read_only %}Report view{% else %}Upload result{% endif %}</span>
+    <h1>{{ report.message }}</h1>
+    <p>File: {{ report.filename }}{% if shared_view %} · Read-only shared report{% endif %}</p>
+</section>
+
+{% if report.catalog_title or report.uploaded_report_id %}
+<section class="feature-card">
+    <div class="mini-list">
+        {% if report.catalog_title %}
+            <div class="mini-list-row"><span>Report title</span><strong>{{ report.catalog_title }}</strong></div>
+        {% endif %}
+        {% if report.uploaded_report_id %}
+            <div class="mini-list-row"><span>Report ID</span><strong>{{ report.uploaded_report_id }}</strong></div>
+        {% endif %}
+        {% if report.share_token %}
+            <div class="mini-list-row"><span>Share token</span><strong>{{ report.share_token }}</strong></div>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
+
+{% if report.warnings %}
+<section class="feature-card">
+    <h3>Upload warnings</h3>
+    <div class="insight-list">
+        {% for warning in report.warnings %}
+            <div class="insight-item">{{ warning }}</div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<section class="dashboard-grid">
+    <article class="dashboard-card">
+        <span>Status</span>
+        <h2>{{ report.status|title }}</h2>
+        <p>Final upload processing status.</p>
+    </article>
+    <article class="dashboard-card">
+        <span>Rows processed</span>
+        <h2>{{ report.rows_processed }}</h2>
+        <p>Total rows read below the detected header.</p>
+    </article>
+    <article class="dashboard-card">
+        <span>Valid rows</span>
+        <h2>{{ report.valid_rows }}</h2>
+        <p>Rows accepted into the analysis flow.</p>
+    </article>
+    <article class="dashboard-card">
+        <span>Failed rows</span>
+        <h2>{{ report.failed_rows }}</h2>
+        <p>Rows skipped because they could not be parsed safely.</p>
+    </article>
+</section>
+
+{% if current_user.role == 'admin' %}
+<section class="grid-two">
+    <article class="feature-card">
+        <h3>Report QR access</h3>
+        <p>Generate a QR code so users can open the shared inventory catalog and place orders.</p>
+        {% if report.qr_filename %}
+            <img class="qr-preview" src="{{ url_for('static', filename='qr/' ~ report.qr_filename) }}" alt="Report QR code">
+            <p class="auth-helper">Shared route: {{ url_for('catalog', token=report.view_token, _external=True) }}</p>
+        {% else %}
+            <p>No QR code generated yet.</p>
+        {% endif %}
+        <a class="btn btn-primary" href="{{ url_for('generate_report_qr', report_id=report.id) }}">Generate QR</a>
+    </article>
+    <article class="feature-card">
+        <h3>Admin report controls</h3>
+        <div class="action-grid">
+            <a class="action-tile" href="{{ url_for('admin_dashboard') }}#reports">Report Management</a>
+            <a class="action-tile" href="{{ url_for('manage_data') }}">Manage Inventory</a>
+        </div>
+    </article>
+</section>
+{% endif %}
+
+<section class="grid-two">
+    <article class="feature-card">
+        <h3>Detected columns</h3>
+        <div class="mini-list">
+            {% for header in report.raw_headers %}
+                <div class="mini-list-row"><span>{{ header }}</span><strong>{{ report.normalized_headers[loop.index0] if report.normalized_headers|length > loop.index0 else '-' }}</strong></div>
+            {% else %}
+                <div class="mini-list-row"><span>No headers detected</span><strong>-</strong></div>
+            {% endfor %}
+        </div>
+    </article>
+    <article class="feature-card">
+        <h3>Mapped final columns</h3>
+        <div class="mini-list">
+            {% for field, column in report.mapped_columns.items() %}
+                <div class="mini-list-row"><span>{{ field }}</span><strong>{{ column }}</strong></div>
+            {% else %}
+                <div class="mini-list-row"><span>No mapped columns</span><strong>-</strong></div>
+            {% endfor %}
+        </div>
+        {% if report.detected_header_row %}
+            <p class="auth-helper">Detected header row: {{ report.detected_header_row }}</p>
+        {% endif %}
+    </article>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <h3>Top products chart</h3>
+        {% if report.charts.top_products %}
+            <img class="chart-image" src="{{ report.charts.top_products }}" alt="Top products chart">
+        {% else %}
+            <p>No chart available for this upload.</p>
+        {% endif %}
+    </article>
+    <article class="feature-card">
+        <h3>Category distribution</h3>
+        {% if report.charts.category_distribution %}
+            <img class="chart-image" src="{{ report.charts.category_distribution }}" alt="Category distribution chart">
+        {% else %}
+            <p>No category chart available for this upload.</p>
+        {% endif %}
+    </article>
+</section>
+
+<section class="feature-card">
+    <h3>Parsed data preview</h3>
+    <div class="table-shell">
+        <table>
+            <thead>
+                <tr><th>Product</th><th>Category</th><th>Price</th><th>Quantity</th><th>Date</th></tr>
+            </thead>
+            <tbody>
+                {% for row in report.preview_rows %}
+                <tr>
+                    <td>{{ row.product_name }}</td>
+                    <td>{{ row.category }}</td>
+                    <td>Rs. {{ "%.2f"|format(row.price) }}</td>
+                    <td>{{ row.quantity }}</td>
+                    <td>{{ row.date }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5">No parsed rows to preview.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="form-actions top-gap">
+        {% if current_user.role == 'admin' %}
+            <a class="btn btn-primary" href="{{ url_for('analytics') }}">Open Analytics</a>
+            <a class="btn btn-secondary" href="{{ url_for('admin_dashboard') }}">Back to Admin Dashboard</a>
+            <a class="btn btn-secondary" href="{{ url_for('report_view', report_id=report.id) }}">Read-only Report Link</a>
+        {% elif current_user.role == 'guest' %}
+            <a class="btn btn-primary" href="{{ url_for('guest_dashboard') }}">Back to Guest Dashboard</a>
+        {% else %}
+            <a class="btn btn-primary" href="{{ url_for('user_dashboard') }}">Back to User Dashboard</a>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

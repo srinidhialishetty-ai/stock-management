@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Upload Data | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header">
+    <span class="eyebrow">Data upload</span>
+    <h1>Upload inventory records for analytics.</h1>
+    <p>Use Excel for bulk uploads or manual entry for quick single-record updates. Guest uploads stay temporary; user and admin uploads are saved.</p>
+</section>
+
+<section class="grid-two">
+    <form class="form-card" method="post" enctype="multipart/form-data">
+        <input type="hidden" name="upload_mode" value="excel">
+        <h3>Upload Excel file</h3>
+        <p>Standard fields are <code>product_name</code>, <code>category</code>, <code>price</code>, <code>quantity</code>, and <code>date</code>.</p>
+        <p>Flexible headers are supported too, such as <code>Product</code>, <code>Dept</code>, <code>Rate</code>, <code>Qty</code>, and <code>Entry Date</code>. If anything is unclear, you will get a mapping screen.</p>
+        <label>Excel file
+            <input type="file" name="excel_file" accept=".xlsx" required>
+        </label>
+        <button class="btn btn-primary" type="submit">Upload Excel</button>
+    </form>
+
+    <form class="form-card" method="post">
+        <input type="hidden" name="upload_mode" value="manual">
+        <h3>Manual entry</h3>
+        <label>Product name
+            <input type="text" name="product_name" required>
+        </label>
+        <label>Category
+            <select name="category" required>
+                <option value="">Select category</option>
+                {% for category in categories %}
+                    <option value="{{ category }}">{{ category }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Price
+            <input type="number" step="0.01" min="0" name="price" required>
+        </label>
+        <label>Quantity
+            <input type="number" min="0" name="quantity" required>
+        </label>
+        <label>Reorder level
+            <input type="number" min="0" name="reorder_level" value="10">
+        </label>
+        <label>Supplier name
+            <input type="text" name="supplier_name" placeholder="Optional supplier name">
+        </label>
+        <label>Branch / store
+            <input type="text" name="branch_name" placeholder="Optional branch or location">
+        </label>
+        <label>Product image URL
+            <input type="url" name="image_url" placeholder="https://example.com/product-image.jpg">
+        </label>
+        <label>Date
+            <input type="date" name="date">
+        </label>
+        <button class="btn btn-primary" type="submit">Save Entry</button>
+    </form>
+</section>
+{% endblock %}

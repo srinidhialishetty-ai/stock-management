@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block title %}Analytics | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header analytics-hero">
+    <span class="eyebrow">Business analytics</span>
+    <h1>Inventory intelligence from real uploaded data.</h1>
+    <p>No demo products, no placeholder charts. This dashboard only reflects records stored or uploaded in your application.</p>
+</section>
+
+{% if not analytics.has_data %}
+<section class="empty-state feature-card">
+    <span class="eyebrow">No analytics data available yet</span>
+    {% if current_user.role == 'admin' %}
+        <h2>Upload inventory to see analytics.</h2>
+        <p>Once real stock/order records are uploaded, this page will show fast movers, slow movers, category distribution, inventory value, and sales trends.</p>
+    {% else %}
+        <h2>No shared analytics report is available yet.</h2>
+        <p>Ask the admin for a QR-linked report to view read-only analytics generated from real uploaded data.</p>
+    {% endif %}
+    {% if current_user.role == 'admin' %}
+        <a class="btn btn-primary" href="{{ url_for('upload') }}">Upload Inventory</a>
+    {% else %}
+        <a class="btn btn-secondary" href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+    {% endif %}
+</section>
+{% else %}
+<section class="dashboard-grid analytics-kpis">
+    <article class="dashboard-card"><span>Total Products</span><h2>{{ analytics.summary.total_products }}</h2><p>Unique real products in analysis.</p></article>
+    <article class="dashboard-card"><span>Inventory Value</span><h2>Rs. {{ "%.2f"|format(analytics.summary.total_inventory_value) }}</h2><p>Computed as price x quantity.</p></article>
+    <article class="dashboard-card"><span>Low Stock Count</span><h2>{{ analytics.summary.low_stock_count }}</h2><p>Items below reorder threshold.</p></article>
+    <article class="dashboard-card"><span>Top Selling Product</span><h2>{{ analytics.summary.top_selling_product }}</h2><p>Based on recorded order quantity.</p></article>
+    <article class="dashboard-card"><span>Total Orders</span><h2>{{ analytics.summary.total_orders }}</h2><p>Total sold units from orders.</p></article>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card chart-card">
+        <div class="section-row">
+            <div>
+                <span class="eyebrow">Fast-moving items</span>
+                <h3>Top selling products</h3>
+            </div>
+        </div>
+        {% if analytics.fast_items %}
+            <div class="chart-shell"><canvas id="fastMovingChart"></canvas></div>
+        {% else %}
+            <div class="soft-empty">No orders yet. Upload or record sales to identify fast-moving items.</div>
+        {% endif %}
+    </article>
+    <article class="feature-card chart-card">
+        <span class="eyebrow">Inventory distribution</span>
+        <h3>Category stock share</h3>
+        {% if analytics.charts.category_labels %}
+            <div class="chart-shell donut-shell"><canvas id="categoryDonutChart"></canvas></div>
+        {% else %}
+            <div class="soft-empty">No category data available.</div>
+        {% endif %}
+    </article>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <span class="eyebrow">Smart alerts</span>
+        <h3>Low stock requiring action</h3>
+        <div class="low-stock-grid">
+            {% for item in analytics.low_stock %}
+                <div class="low-stock-card">
+                    <span>{{ item.product_name }}</span>
+                    <strong>{{ item.stock }} left</strong>
+                    <em>Reorder soon</em>
+                </div>
+            {% else %}
+                <div class="soft-empty">No low-stock alerts right now.</div>
+            {% endfor %}
+        </div>
+    </article>
+    <article class="feature-card chart-card">
+        <span class="eyebrow">Slow-moving items</span>
+        <h3>Lowest sales with stock remaining</h3>
+        {% if analytics.slow_items %}
+            <div class="chart-shell"><canvas id="slowMovingChart"></canvas></div>
+        {% else %}
+            <div class="soft-empty">No stocked products available for slow-mover analysis.</div>
+        {% endif %}
+    </article>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card chart-card">
+        <span class="eyebrow">Inventory value</span>
+        <h3>Most valuable products</h3>
+        {% if analytics.valuable_products %}
+            <div class="chart-shell"><canvas id="inventoryValueChart"></canvas></div>
+        {% else %}
+            <div class="soft-empty">No value data available.</div>
+        {% endif %}
+    </article>
+    <article class="feature-card">
+        <span class="eyebrow">Category value</span>
+        <h3>Value by category</h3>
+        <div class="mini-list">
+            {% for row in analytics.category_value_rows %}
+                <div class="mini-list-row"><span>{{ row.category }} &mdash;</span><strong>Rs. {{ "%.2f"|format(row.value) }}</strong></div>
+            {% else %}
+                <div class="mini-list-row"><span>No category value available</span><strong>-</strong></div>
+            {% endfor %}
+        </div>
+    </article>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card chart-card">
+        <span class="eyebrow">Sales trend</span>
+        <h3>Orders over time</h3>
+        {% if analytics.charts.trend_labels %}
+            <div class="chart-shell"><canvas id="salesTrendChart"></canvas></div>
+        {% else %}
+            <div class="soft-empty">No dated orders yet.</div>
+        {% endif %}
+    </article>
+    <article class="feature-card">
+        <span class="eyebrow">Decision support</span>
+        <h3>Business recommendations</h3>
+        <div class="insight-list">
+            {% for message in analytics.insights %}
+                <div class="insight-item">{{ message }}</div>
+            {% endfor %}
+        </div>
+    </article>
+</section>
+
+<section class="feature-card">
+    <h3>Real uploaded records preview</h3>
+    <div class="table-shell">
+        <table>
+            <thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Date</th></tr></thead>
+            <tbody>
+                {% for row in rows %}
+                <tr><td>{{ row.PRODUCT_NAME }}</td><td>{{ row.CATEGORY }}</td><td>Rs. {{ "%.2f"|format(row.PRICE) }}</td><td>{{ row.QUANTITY }}</td><td>{{ row.ENTRY_DATE or '-' }}</td></tr>
+                {% else %}
+                <tr><td colspan="5">No real records available.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if analytics.has_data %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const analyticsPayload = {{ chart_payload|safe }};
+const isNightMode = document.body.classList.contains("theme-night");
+const textColor = isNightMode ? "#EAFBF0" : "#2B2B2B";
+const mutedColor = isNightMode ? "rgba(234,251,240,0.58)" : "rgba(43,43,43,0.55)";
+const gridColor = isNightMode ? "rgba(122,255,195,0.12)" : "rgba(43,43,43,0.08)";
+
+function makeGradient(ctx, colorA, colorB) {
+    const gradient = ctx.createLinearGradient(0, 0, 500, 0);
+    gradient.addColorStop(0, colorA);
+    gradient.addColorStop(1, colorB);
+    return gradient;
+}
+
+function renderHorizontalBar(id, labels, values, colorA, colorB) {
+    const canvas = document.getElementById(id);
+    if (!canvas || !labels.length) return;
+    const ctx = canvas.getContext("2d");
+    new Chart(ctx, {
+        type: "bar",
+        data: { labels, datasets: [{ data: values, borderRadius: 12, backgroundColor: makeGradient(ctx, colorA, colorB), barThickness: 18 }] },
+        options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { backgroundColor: "#14213D", padding: 12, cornerRadius: 12 } },
+            scales: {
+                x: { grid: { color: gridColor }, ticks: { color: mutedColor, precision: 0 } },
+                y: { grid: { display: false }, ticks: { color: textColor, font: { weight: 600 } } }
+            }
+        }
+    });
+}
+
+function renderDonut() {
+    const canvas = document.getElementById("categoryDonutChart");
+    if (!canvas || !analyticsPayload.category_labels.length) return;
+    new Chart(canvas, {
+        type: "doughnut",
+        data: {
+            labels: analyticsPayload.category_labels,
+            datasets: [{ data: analyticsPayload.category_values, backgroundColor: ["#8B5E3C", "#C08A5D", "#6F7D5C", "#D7B891", "#A8B68A", "#E3D8C4"], borderWidth: 0 }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: "68%",
+            plugins: { legend: { position: "bottom", labels: { color: textColor, usePointStyle: true, padding: 18 } } }
+        }
+    });
+}
+
+function renderTrend() {
+    const canvas = document.getElementById("salesTrendChart");
+    if (!canvas || !analyticsPayload.trend_labels.length) return;
+    const ctx = canvas.getContext("2d");
+    const gradient = ctx.createLinearGradient(0, 0, 0, 280);
+    gradient.addColorStop(0, "rgba(111,125,92,0.38)");
+    gradient.addColorStop(1, "rgba(111,125,92,0.02)");
+    new Chart(ctx, {
+        type: "line",
+        data: { labels: analyticsPayload.trend_labels, datasets: [{ data: analyticsPayload.trend_values, tension: 0.42, fill: true, backgroundColor: gradient, borderColor: "#6F7D5C", borderWidth: 3, pointRadius: 4, pointBackgroundColor: "#C08A5D" }] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false }, ticks: { color: mutedColor } },
+                y: { grid: { color: gridColor }, ticks: { color: mutedColor, precision: 0 } }
+            }
+        }
+    });
+}
+
+renderHorizontalBar("fastMovingChart", analyticsPayload.fast_labels, analyticsPayload.fast_values, "#6F7D5C", "#C08A5D");
+renderHorizontalBar("slowMovingChart", analyticsPayload.slow_labels, analyticsPayload.slow_values, "#C7B49A", "#8B5E3C");
+renderHorizontalBar("inventoryValueChart", analyticsPayload.value_labels, analyticsPayload.value_values, "#8B5E3C", "#D7B891");
+renderDonut();
+renderTrend();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Add Sale | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header">
+    <span class="eyebrow">Record a sale</span>
+    <h1>Create a sales entry and deduct stock automatically.</h1>
+</section>
+<form class="form-card" method="post">
+    <label>Product
+        <select name="product_id" id="sale-product-select" required>
+            <option value="">Select product</option>
+            {% for product in products %}
+                <option value="{{ product.PRODUCT_ID }}" data-price="{{ product.PRICE }}" data-quantity="{{ product.QUANTITY }}">
+                    {{ product.NAME }} | {{ product.CATEGORY }} | {{ product.QUANTITY }} in stock
+                </option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>Quantity
+        <input type="number" min="1" name="quantity" id="sale-quantity-input" placeholder="1" required>
+    </label>
+    <label>Sale Date
+        <input type="date" name="sale_date" value="{{ '' }}">
+    </label>
+    <div class="preview-card">
+        <span>Estimated total</span>
+        <strong id="sale-total-preview">Rs. 0.00</strong>
+        <p id="sale-stock-preview">Select a product to see stock availability.</p>
+    </div>
+    <div class="form-actions">
+        <button class="btn btn-primary" type="submit">Save Sale</button>
+        <a class="btn btn-secondary" href="{{ url_for('sales') }}">Back to Sales</a>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Guest Dashboard | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header user-hero">
+    <span class="eyebrow">Guest access</span>
+    <h1>View shared catalogs without an account.</h1>
+    <p>Guest mode is read-only. Use a QR link or shared token from the admin to preview one shared catalog safely.</p>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <h3>Guest permissions</h3>
+        <div class="insight-list">
+            <div class="insight-item">You can open QR-linked reports shared by admin.</div>
+            <div class="insight-item">You cannot upload, edit, delete, or generate QR codes.</div>
+            <div class="insight-item">For permanent access, register as a user.</div>
+        </div>
+    </article>
+    <article class="feature-card" id="view-report">
+        <h3>Open shared catalog</h3>
+        <form class="inline-form stacked" method="post" action="{{ url_for('view_data_lookup') }}">
+            <input type="text" name="qr_token" placeholder="Paste /catalog/... link or token" required>
+            <button class="btn btn-primary" type="submit">View Catalog</button>
+        </form>
+    </article>
+</section>
+
+<section class="feature-card">
+    <h3>Recently viewed catalogs</h3>
+    <div class="mini-list">
+        {% for report in viewed_reports %}
+            <div class="mini-list-row"><span>{{ report.filename }}</span><strong>{{ report.rows }} rows</strong></div>
+        {% else %}
+            <div class="mini-list-row"><span>No reports opened yet</span><strong>Waiting for QR</strong></div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

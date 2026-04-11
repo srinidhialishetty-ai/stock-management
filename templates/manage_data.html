@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Manage Data | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header">
+    <span class="eyebrow">Admin data management</span>
+    <h1>Edit and delete inventory records.</h1>
+    <p>These controls are admin-only and affect saved inventory data.</p>
+</section>
+
+<section class="feature-card">
+    <div class="section-row">
+        <h3>Inventory records</h3>
+        <div class="form-actions">
+            <form method="post" action="{{ url_for('repair_categories') }}">
+                <button class="btn btn-secondary" type="submit">Repair Categories</button>
+            </form>
+            <form method="post" action="{{ url_for('clean_invalid_categories') }}">
+                <button class="btn btn-secondary" type="submit">Clean Invalid Categories</button>
+            </form>
+            <form method="post" action="{{ url_for('reset_uploaded_inventory') }}" onsubmit="return confirm('This removes uploaded inventory, shared catalogs, carts, orders, products, and sales data. Continue?');">
+                <button class="btn btn-secondary" type="submit">Reset Uploaded Inventory Data</button>
+            </form>
+            <a class="btn btn-primary" href="{{ url_for('upload') }}">Add Data</a>
+        </div>
+    </div>
+    <div class="table-shell">
+        <table>
+            <thead>
+                <tr><th>Product</th><th>Category</th><th>Price</th><th>Quantity</th><th>Reorder</th><th>Branch</th><th>Supplier</th><th>Date</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td>{{ row.PRODUCT_NAME }}</td>
+                    <td>{{ row.CATEGORY }}</td>
+                    <td>Rs. {{ "%.2f"|format(row.PRICE) }}</td>
+                    <td class="{% if row.QUANTITY <= 10 %}low-stock{% endif %}">{{ row.QUANTITY }}</td>
+                    <td>{{ row.REORDER_LEVEL or 10 }}</td>
+                    <td>{{ row.BRANCH_NAME or '-' }}</td>
+                    <td>{{ row.SUPPLIER_NAME or '-' }}</td>
+                    <td>{{ row.ENTRY_DATE or '-' }}</td>
+                    <td>
+                        <div class="row-actions">
+                            <a href="{{ url_for('edit_data', row_id=row.ID) }}">Edit</a>
+                            <form method="post" action="{{ url_for('delete_data', row_id=row.ID) }}" onsubmit="return confirm('Delete this inventory record?');">
+                                <button class="link-button" type="submit">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="9">No records available yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

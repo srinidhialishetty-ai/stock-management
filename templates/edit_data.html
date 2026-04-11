@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Edit Data | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header">
+    <span class="eyebrow">Admin edit</span>
+    <h1>Edit inventory record.</h1>
+    <p>Update saved inventory values carefully. This route is protected for admins only.</p>
+</section>
+
+<form class="form-card" method="post">
+    <label>Product name
+        <input type="text" name="product_name" value="{{ row.PRODUCT_NAME }}" required>
+    </label>
+    <label>Category
+        <select name="category" required>
+            {% for category in categories %}
+                <option value="{{ category }}" {% if row.CATEGORY == category %}selected{% endif %}>{{ category }}</option>
+            {% endfor %}
+            <option value="Uncategorized" {% if row.CATEGORY == 'Uncategorized' %}selected{% endif %}>Uncategorized</option>
+        </select>
+    </label>
+    <label>Price
+        <input type="number" step="0.01" min="0" name="price" value="{{ row.PRICE }}" required>
+    </label>
+    <label>Quantity
+        <input type="number" min="0" name="quantity" value="{{ row.QUANTITY }}" required>
+    </label>
+    <label>Reorder level
+        <input type="number" min="0" name="reorder_level" value="{{ row.REORDER_LEVEL or 10 }}">
+    </label>
+    <label>Supplier name
+        <input type="text" name="supplier_name" value="{{ row.SUPPLIER_NAME or '' }}">
+    </label>
+    <label>Branch / store
+        <input type="text" name="branch_name" value="{{ row.BRANCH_NAME or '' }}">
+    </label>
+    <label>Product image URL
+        <input type="url" name="image_url" value="{{ row.IMAGE_URL or '' }}">
+    </label>
+    <label>Date
+        <input type="date" name="date" value="{{ row.ENTRY_DATE }}">
+    </label>
+    <div class="form-actions">
+        <button class="btn btn-primary" type="submit">Save Changes</button>
+        <a class="btn btn-secondary" href="{{ url_for('manage_data') }}">Cancel</a>
+    </div>
+</form>
+{% endblock %}

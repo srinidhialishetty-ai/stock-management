@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.db-journal
+*.sqlite3
+*.sqlite3-journal

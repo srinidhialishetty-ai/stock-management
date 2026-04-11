@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Contact | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header">
+    <span class="eyebrow">Contact</span>
+    <h1>Talk to the team behind your next stock operations upgrade.</h1>
+    <p>Use this demo-ready page for recruiter portfolios, academic presentations, and client-facing walkthroughs.</p>
+</section>
+<section class="grid-two">
+    <article class="feature-card">
+        <h3>Business inquiries</h3>
+        <p>Email: support@stockpilot.local</p>
+        <p>Phone: +91 90000 00000</p>
+        <p>Availability: Monday to Saturday, 10 AM to 7 PM</p>
+    </article>
+    <article class="feature-card">
+        <h3>Implementation scope</h3>
+        <p>Oracle-backed authentication, inventory control, sales tracking, multi-input flows, QR support, and analytics integration.</p>
+        <a class="btn btn-secondary" href="{{ url_for('register') }}">Create Account</a>
+    </article>
+</section>
+{% endblock %}
