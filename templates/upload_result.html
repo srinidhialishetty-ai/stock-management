@@ -149,7 +149,7 @@
     </div>
     <div class="form-actions top-gap">
         {% if current_user.role == 'admin' %}
-            <a class="btn btn-primary" href="{{ url_for('analytics') }}">Open Analytics</a>
+            <a class="btn btn-primary" href="{{ url_for('analytics', report_id=report.uploaded_report_id or report.id) }}">Open Analytics</a>
             <a class="btn btn-secondary" href="{{ url_for('admin_dashboard') }}">Back to Admin Dashboard</a>
             <a class="btn btn-secondary" href="{{ url_for('report_view', report_id=report.id) }}">Read-only Report Link</a>
         {% elif current_user.role == 'guest' %}

@@ -1,31 +1,104 @@
 {% extends "base.html" %}
 {% block title %}Login | Stock Management with Inventory Analysis{% endblock %}
 {% block content %}
-<section class="auth-shell">
-    <div class="auth-intro">
-        <span class="eyebrow">Access Control</span>
-        <h1>Choose how you want to enter the stock management workspace.</h1>
-        <p>Sign in with your assigned credentials. Guest mode offers limited preview access without management tools.</p>
-        <div class="insight-list">
-            <div class="insight-item"><strong>Admin Access:</strong> upload inventory, manage data, share catalogs, and review orders.</div>
-            <div class="insight-item"><strong>Manager Access:</strong> monitor analytics, inventory health, and order execution.</div>
-            <div class="insight-item"><strong>User Access:</strong> open shared catalogs and place stock requests.</div>
-            <div class="insight-item"><strong>Guest Access:</strong> limited preview access only.</div>
+<section class="login-stage" data-login-page data-active-role="admin">
+    <div class="login-noise"></div>
+    <div class="login-gradient"></div>
+    <div class="login-glow login-glow-one"></div>
+    <div class="login-glow login-glow-two"></div>
+    <div class="login-particles" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="login-cursor"></div>
+    <div class="login-cursor-trail"></div>
+
+    <div class="login-viewport">
+        <div class="login-story" data-depth="-10">
+            <span class="eyebrow">Product Entry Layer</span>
+            <h1>Step into the control surface for inventory, analytics, and live ordering.</h1>
+            <p>A cinematic access experience for teams running real stock operations, shared catalogs, and decision-ready dashboards.</p>
+            <div class="login-story-grid">
+                <article>
+                    <strong>Motion-first</strong>
+                    <span>Fluid transitions, magnetic controls, and deliberate depth.</span>
+                </article>
+                <article>
+                    <strong>Role-aware</strong>
+                    <span>Admin, manager, user, and guest access each feel intentional.</span>
+                </article>
+                <article>
+                    <strong>Business-ready</strong>
+                    <span>From upload to checkout, the flow feels like a product, not a form.</span>
+                </article>
+            </div>
+        </div>
+
+        <div class="login-panel magnetic" id="login-panel" data-depth="14">
+            <div class="login-panel-head">
+                <div>
+                    <span class="eyebrow">Access Modes</span>
+                    <h2 id="login-role-title">Admin Access</h2>
+                </div>
+                <span class="login-status-pill" id="login-role-pill">ADMIN</span>
+            </div>
+
+            <div class="login-role-grid">
+                <button class="login-role-card magnetic is-active" type="button" data-role="admin">
+                    <span class="login-role-icon">A</span>
+                    <strong>Admin</strong>
+                    <small>Inventory control, uploads, reports, analytics</small>
+                </button>
+                <button class="login-role-card magnetic" type="button" data-role="manager">
+                    <span class="login-role-icon">M</span>
+                    <strong>Manager</strong>
+                    <small>Operations, analytics, orders, fulfillment view</small>
+                </button>
+                <button class="login-role-card magnetic" type="button" data-role="user">
+                    <span class="login-role-icon">U</span>
+                    <strong>User</strong>
+                    <small>Shared catalog browsing, cart, checkout, orders</small>
+                </button>
+                <button class="login-role-card magnetic" type="button" data-role="guest">
+                    <span class="login-role-icon">G</span>
+                    <strong>Guest</strong>
+                    <small>Read-only preview of shared catalog experiences</small>
+                </button>
+            </div>
+
+            <div class="login-form-shell">
+                <div class="login-form-copy">
+                    <h3 id="login-form-heading">Authenticate into the management layer.</h3>
+                    <p id="login-form-subtitle">Sign in with your assigned credentials. Access stays clean, secure, and role-aware.</p>
+                </div>
+
+                <form class="login-form-panel" id="credential-form" method="post">
+                    <input type="hidden" name="role_intent" id="role-intent" value="admin">
+                    <label class="floating-field">
+                        <input type="text" name="username" id="login-username" placeholder=" " autocomplete="username" required>
+                        <span>Username</span>
+                    </label>
+                    <label class="floating-field">
+                        <input type="password" name="password" id="login-password" placeholder=" " autocomplete="current-password" required>
+                        <span>Password</span>
+                    </label>
+                    <button class="btn btn-primary login-submit magnetic" id="login-submit" type="submit">Enter Admin Workspace</button>
+                </form>
+
+                <div class="login-guest-panel" id="guest-panel" hidden>
+                    <div class="login-guest-card">
+                        <h3>Preview the product without account setup.</h3>
+                        <p>Guest mode opens a limited cinematic walkthrough of shared catalog access while keeping management tools protected.</p>
+                        <a class="btn btn-primary magnetic login-submit" href="{{ url_for('guest_login') }}">Continue as Guest</a>
+                    </div>
+                </div>
+
+                <div class="login-action-row">
+                    <a class="btn btn-secondary magnetic" href="{{ url_for('register') }}">Create New User</a>
+                    <a class="btn btn-secondary magnetic" href="{{ url_for('guest_login') }}">Guest Preview</a>
+                </div>
+            </div>
         </div>
     </div>
-    <form class="auth-card" method="post">
-        <div class="section-row">
-            <a class="btn btn-secondary" href="{{ url_for('register') }}">Register as New User</a>
-            <a class="btn btn-secondary" href="{{ url_for('guest_login') }}">Continue as Guest</a>
-        </div>
-        <label>Username
-            <input type="text" name="username" placeholder="Enter your username" required>
-        </label>
-        <label>Password
-            <input type="password" name="password" placeholder="Enter your password" required>
-        </label>
-        <button class="btn btn-primary" type="submit">Login as Existing User</button>
-        <p class="auth-helper">Use the username and password assigned to your role.</p>
-    </form>
 </section>
 {% endblock %}

@@ -7,12 +7,44 @@
     <p>No demo products, no placeholder charts. This dashboard only reflects records stored or uploaded in your application.</p>
 </section>
 
+<section class="grid-two">
+    <article class="feature-card">
+        <span class="eyebrow">Active dataset</span>
+        <h3>Current analytics scope</h3>
+        {% if active_report %}
+            <div class="mini-list">
+                <div class="mini-list-row"><span>Report title</span><strong>{{ active_report.TITLE }}</strong></div>
+                <div class="mini-list-row"><span>Source file</span><strong>{{ active_report.SOURCE_FILE_NAME or active_report.TITLE }}</strong></div>
+                <div class="mini-list-row"><span>Report ID</span><strong>{{ active_report.REPORT_ID }}</strong></div>
+            </div>
+        {% else %}
+            <div class="soft-empty">No active uploaded report is selected yet.</div>
+        {% endif %}
+    </article>
+    {% if current_user.role in ['admin', 'manager'] %}
+    <article class="feature-card">
+        <span class="eyebrow">Report selector</span>
+        <h3>Switch uploaded dataset</h3>
+        <form class="inline-form stacked" method="get" action="{{ url_for('analytics') }}">
+            <select name="report_id">
+                {% for report in report_options %}
+                    <option value="{{ report.REPORT_ID }}" {% if active_report and active_report.REPORT_ID == report.REPORT_ID %}selected{% endif %}>
+                        {{ report.TITLE }} · {{ report.SOURCE_FILE_NAME }}
+                    </option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-primary" type="submit">Load Analytics</button>
+        </form>
+    </article>
+    {% endif %}
+</section>
+
 {% if not analytics.has_data %}
 <section class="empty-state feature-card">
     <span class="eyebrow">No analytics data available yet</span>
-    {% if current_user.role == 'admin' %}
+    {% if current_user.role in ['admin', 'manager'] %}
         <h2>Upload inventory to see analytics.</h2>
-        <p>Once real stock/order records are uploaded, this page will show fast movers, slow movers, category distribution, inventory value, and sales trends.</p>
+        <p>Once a real uploaded report is selected, this page will show fast movers, slow movers, category distribution, inventory value, and sales trends only for that report.</p>
     {% else %}
         <h2>No shared analytics report is available yet.</h2>
         <p>Ask the admin for a QR-linked report to view read-only analytics generated from real uploaded data.</p>

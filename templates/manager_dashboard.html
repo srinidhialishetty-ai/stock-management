@@ -37,7 +37,7 @@
                 <span class="eyebrow">Shared catalogs</span>
                 <h3>Active shared access</h3>
             </div>
-            <a class="btn btn-secondary" href="{{ url_for('analytics') }}">Analytics</a>
+            <a class="btn btn-secondary" href="{{ url_for('analytics', report_id=latest_uploaded_report.REPORT_ID) if latest_uploaded_report else url_for('analytics') }}">Analytics</a>
         </div>
         <div class="mini-list">
             {% for share in shared_catalogs %}

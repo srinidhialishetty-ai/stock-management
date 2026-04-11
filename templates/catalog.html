@@ -144,7 +144,15 @@
                 {% endif %}
             </article>
         {% else %}
-            <div class="soft-empty">No products match the current filters for this shared catalog.</div>
+            <div class="soft-empty">
+                {% if total_products == 0 %}
+                    No products are linked to this shared catalog yet.
+                {% elif has_active_filters %}
+                    No products match the current filters for this shared catalog.
+                {% else %}
+                    No visible products are available in this shared catalog yet.
+                {% endif %}
+            </div>
         {% endfor %}
     </div>
 </section>

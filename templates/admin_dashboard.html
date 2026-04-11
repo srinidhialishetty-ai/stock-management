@@ -30,8 +30,8 @@
     <article class="feature-card">
         <span class="eyebrow">Analytics</span>
         <h3>Analytics overview</h3>
-        <p>Review system-wide charts, decision support, and low-stock analysis.</p>
-        <a class="btn btn-secondary" href="{{ url_for('analytics') }}">Open Analytics</a>
+        <p>Review selected-report charts, decision support, and low-stock analysis without mixing old datasets.</p>
+        <a class="btn btn-secondary" href="{{ url_for('analytics', report_id=latest_uploaded_report.REPORT_ID) if latest_uploaded_report else url_for('analytics') }}">Open Analytics</a>
     </article>
 </section>
 
@@ -169,7 +169,7 @@
             <a class="action-tile" href="{{ url_for('upload') }}">Upload Excel</a>
             <a class="action-tile" href="{{ url_for('manage_data') }}">Edit/Delete Data</a>
             <a class="action-tile" href="{{ url_for('products') }}">Product QR Codes</a>
-            <a class="action-tile" href="{{ url_for('analytics') }}">Full Analytics</a>
+            <a class="action-tile" href="{{ url_for('analytics', report_id=latest_uploaded_report.REPORT_ID) if latest_uploaded_report else url_for('analytics') }}">Full Analytics</a>
         </div>
     </article>
 </section>

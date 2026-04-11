@@ -627,6 +627,16 @@ def save_uploaded_rows(rows, report_batch=None):
     if not success:
         return False, message
     store_rows_in_products_and_sales(rows)
+    if report_batch:
+        stored_count = fetch_one(
+            """
+            SELECT COUNT(*) AS row_count
+            FROM inventory_data
+            WHERE report_id = :report_id
+            """,
+            {"report_id": report_batch["report_id"]},
+        )
+        print("Rows stored for uploaded report:", stored_count.get("ROW_COUNT", 0) if stored_count else 0)
     print("Final stored category values:", [row.get("category") for row in rows[:8]])
     return True, message
 
@@ -648,7 +658,7 @@ def make_upload_report(filename, status, message, rows, metadata=None, report_ba
         for index, row in enumerate(rows)
     ]
     report = {
-        "id": uuid4().hex,
+        "id": report_batch.get("report_id") if report_batch else uuid4().hex,
         "filename": filename,
         "source_file_name": report_batch.get("source_file_name") if report_batch else filename,
         "status": status,
@@ -669,7 +679,7 @@ def make_upload_report(filename, status, message, rows, metadata=None, report_ba
         "preview_rows": metadata.get("parsed_preview", rows[:8]),
         "charts": build_lightweight_analytics(analytics_rows).get("charts", {}),
         "qr_filename": None,
-        "view_token": None,
+        "view_token": report_batch.get("token") if report_batch else None,
     }
     REPORT_STORE[report["id"]] = report
     session["last_upload_report_id"] = report["id"]
@@ -1339,6 +1349,94 @@ def get_latest_uploaded_report():
     )
 
 
+def get_uploaded_report_by_id(report_id):
+    if not report_id:
+        return None
+    return fetch_one(
+        """
+        SELECT report_id, title, created_by_admin, token, source_file_name, status, created_at
+        FROM uploaded_reports
+        WHERE report_id = :report_id
+        """,
+        {"report_id": report_id},
+    )
+
+
+def get_uploaded_report_by_source_file_name(source_file_name):
+    if not source_file_name:
+        return None
+    return fetch_one(
+        """
+        SELECT report_id, title, created_by_admin, token, source_file_name, status, created_at
+        FROM uploaded_reports
+        WHERE LOWER(source_file_name) = LOWER(:source_file_name)
+        ORDER BY created_at DESC
+        FETCH FIRST 1 ROWS ONLY
+        """,
+        {"source_file_name": source_file_name},
+    )
+
+
+def get_uploaded_report_options(limit=12):
+    return fetch_all(
+        f"""
+        SELECT report_id, title, token, source_file_name, status, created_at
+        FROM uploaded_reports
+        ORDER BY created_at DESC
+        FETCH FIRST {int(limit)} ROWS ONLY
+        """
+    )
+
+
+def extract_filename_from_catalog_title(title):
+    title_text = str(title or "").strip()
+    match = re.search(r"catalog from\s+(.+)$", title_text, re.IGNORECASE)
+    return match.group(1).strip() if match else None
+
+
+def count_rows_for_report(report_id):
+    if not report_id:
+        return 0
+    row = fetch_one(
+        """
+        SELECT COUNT(*) AS row_count
+        FROM inventory_data
+        WHERE report_id = :report_id
+        """,
+        {"report_id": report_id},
+    )
+    return int(row.get("ROW_COUNT", 0) or 0) if row else 0
+
+
+def resolve_catalog_report_record(catalog_record):
+    if not catalog_record:
+        return None
+    source_report_id = catalog_record.get("SOURCE_REPORT_ID")
+    if source_report_id and count_rows_for_report(source_report_id) > 0:
+        return get_uploaded_report_by_id(source_report_id)
+
+    repaired_report = get_uploaded_report_by_id(catalog_record.get("TOKEN"))
+    if not repaired_report:
+        repaired_report = get_uploaded_report_by_source_file_name(extract_filename_from_catalog_title(catalog_record.get("TITLE")))
+    if not repaired_report:
+        latest_report = get_latest_uploaded_report()
+        if latest_report and count_rows_for_report(latest_report["REPORT_ID"]) > 0:
+            repaired_report = latest_report
+
+    if repaired_report:
+        safe_execute(
+            """
+            UPDATE shared_catalogs
+            SET source_report_id = :source_report_id
+            WHERE token = :token
+            """,
+            {"source_report_id": repaired_report["REPORT_ID"], "token": catalog_record["TOKEN"]},
+        )
+        catalog_record["SOURCE_REPORT_ID"] = repaired_report["REPORT_ID"]
+        print("Repaired shared catalog source_report_id:", repaired_report["REPORT_ID"])
+    return repaired_report
+
+
 def create_or_refresh_shared_catalog(report_id=None, title=None):
     uploaded_report = None
     if report_id:
@@ -1440,13 +1538,35 @@ def build_catalog_link(token):
     return url_for("catalog", token=token, _external=True)
 
 
+def build_analytics_link(report_id):
+    return url_for("analytics", report_id=report_id) if report_id else url_for("analytics")
+
+
 def extract_token_from_input(value):
     raw_value = str(value or "").strip()
     match = re.search(r"/(?:catalog|view-data)/([A-Za-z0-9]+)", raw_value)
     return match.group(1) if match else raw_value
 
 
-def get_catalog_products(report_id):
+def resolve_active_analytics_report():
+    role = session.get("role")
+    requested_report_id = request.args.get("report_id", "").strip()
+    if role in {"admin", "manager"}:
+        report = (
+            get_uploaded_report_by_id(requested_report_id)
+            or get_uploaded_report_by_id(session.get("active_analytics_report_id"))
+            or get_latest_uploaded_report()
+        )
+    else:
+        token = request.args.get("token", "").strip() or session.get("last_catalog_token")
+        catalog_record = get_shared_catalog_by_token(token) if token else get_latest_shared_catalog()
+        report = get_uploaded_report_by_id(catalog_record.get("SOURCE_REPORT_ID")) if catalog_record else None
+    if report:
+        session["active_analytics_report_id"] = report["REPORT_ID"]
+    return report
+
+
+def get_report_inventory_rows(report_id, exclude_demo_names=False):
     if not report_id:
         return []
     rows = fetch_all(
@@ -1458,8 +1578,9 @@ def get_catalog_products(report_id):
         """,
         {"report_id": report_id},
     )
-    rows = filter_real_inventory_rows(rows)
-    return [
+    if exclude_demo_names:
+        rows = filter_real_inventory_rows(rows)
+    normalized_rows = [
         {
             "ID": row["ID"],
             "REPORT_ID": row.get("REPORT_ID"),
@@ -1475,6 +1596,11 @@ def get_catalog_products(report_id):
         }
         for row in rows
     ]
+    return normalized_rows
+
+
+def get_catalog_products(report_id):
+    return get_report_inventory_rows(report_id, exclude_demo_names=False)
 
 
 def get_orders_for_role(limit=12):
@@ -2003,6 +2129,7 @@ def manager_dashboard():
         orders=build_order_views(10),
         shared_catalogs=get_shared_catalogs(5),
         recent_activity=get_recent_activity(8),
+        latest_uploaded_report=get_latest_uploaded_report(),
     )
 
 
@@ -2320,7 +2447,7 @@ def generate_report_qr(report_id):
 @login_required
 @admin_required
 def generate_share(report_id):
-    report = REPORT_STORE.get(report_id)
+    report = load_report_view(report_id)
     title = f"Catalog from {report.get('filename', 'latest upload')}" if report else "Shared Inventory Catalog"
     catalog = attach_qr_to_shared_catalog(create_or_refresh_shared_catalog(report_id, title))
     if not catalog:
@@ -2504,22 +2631,27 @@ def qr_lookup():
 @app.route("/analytics")
 @login_required
 def analytics():
-    role = session.get("role")
-    if role in {"admin", "manager"}:
-        rows = filter_real_inventory_rows(get_active_rows())
-        sales_rows = get_sales_rows_for_analytics()
-    else:
-        token = session.get("last_catalog_token")
-        catalog_record = get_shared_catalog_by_token(token) if token else get_latest_shared_catalog()
-        report_id = catalog_record.get("SOURCE_REPORT_ID") if catalog_record else None
-        rows = get_catalog_products(report_id)
-        sales_rows = get_sales_rows_for_report(report_id)
+    active_report = resolve_active_analytics_report()
+    active_report_id = active_report["REPORT_ID"] if active_report else None
+    rows = get_report_inventory_rows(active_report_id, exclude_demo_names=True)
+    sales_rows = (
+        get_sales_rows_for_report(active_report_id)
+        if active_report_id
+        else []
+    )
+    print("Active report_id used for analytics:", active_report_id or "NONE")
+    print("Rows fetched for analytics:", len(rows))
     business_analytics = build_business_analytics(rows, sales_rows)
+    print("Low stock rows being used:", [item["product_name"] for item in business_analytics["low_stock"]])
+    print("Top moving rows being used:", [item["product_name"] for item in business_analytics["fast_items"]])
+    print("Slow moving rows being used:", [item["product_name"] for item in business_analytics["slow_items"]])
     return render_template(
         "analytics.html",
         analytics=business_analytics,
         chart_payload=json.dumps(business_analytics["charts"]),
         rows=rows[:8],
+        active_report=active_report,
+        report_options=get_uploaded_report_options(10) if session.get("role") in {"admin", "manager"} else [],
     )
 
 
@@ -2571,14 +2703,18 @@ def view_data(qr_token):
 @app.route("/catalog/<token>")
 @login_required
 def catalog(token):
+    print("Catalog token received:", token)
     catalog_record = get_shared_catalog_by_token(token)
     if not catalog_record:
         flash("This shared catalog link is invalid or expired. Please ask the admin for a fresh link.", "error")
         return redirect_for_role(session.get("role"))
-    report_id = catalog_record.get("SOURCE_REPORT_ID")
+    resolved_report = resolve_catalog_report_record(catalog_record)
+    report_id = resolved_report["REPORT_ID"] if resolved_report else catalog_record.get("SOURCE_REPORT_ID")
+    print("Resolved shared catalog title:", catalog_record.get("TITLE"))
     print("Report_id resolved from token:", report_id)
     products = get_catalog_products(report_id)
-    print("Rows fetched for user view:", len(products))
+    print("Number of products found for report:", len(products))
+    print("First 5 product names fetched:", [product.get("PRODUCT_NAME") for product in products[:5]])
     search = request.args.get("search", "").strip()
     category = request.args.get("category", "").strip()
     stock_level = request.args.get("stock_level", "").strip()
@@ -2586,6 +2722,8 @@ def catalog(token):
     sort_by = request.args.get("sort", "").strip() or "newest"
     filters = build_catalog_filters(products)
     filtered_products = filter_catalog_products(products, search, category, stock_level, branch_name, sort_by)
+    print("Row count fetched before filters:", len(products))
+    print("Row count after filters:", len(filtered_products))
     viewed_reports = session.get("recent_viewed_reports", [])
     summary = {
         "id": catalog_record["TOKEN"],
@@ -2601,6 +2739,8 @@ def catalog(token):
         "catalog.html",
         catalog=catalog_record,
         products=filtered_products,
+        total_products=len(products),
+        has_active_filters=bool(search or category or stock_level or branch_name),
         catalog_metrics=get_catalog_metrics(products),
         filters=filters,
         search=search,
