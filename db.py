@@ -19,7 +19,8 @@ DB_CONFIG = {
 }
 
 BASE_DIR = Path(__file__).resolve().parent
-SQLITE_PATH = Path(os.getenv("TEMP", str(BASE_DIR))) / "stock_management_preview.db"
+# UPDATED: Use a stable SQLite file inside the project directory for Render demo deployments.
+SQLITE_PATH = Path(os.getenv("SQLITE_PATH", str(BASE_DIR / "data" / "render_demo.db")))
 SQLITE_INITIALIZED = False
 DEMO_USERS = [
     ("admin", "admin123", "admin"),
@@ -49,8 +50,11 @@ def get_connection():
 
 
 def get_sqlite_connection():
-    connection = sqlite3.connect(SQLITE_PATH)
+    SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(SQLITE_PATH, timeout=30)
     connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA journal_mode=MEMORY")
+    connection.execute("PRAGMA synchronous=NORMAL")
     return connection
 
 

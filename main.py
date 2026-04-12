@@ -9,7 +9,7 @@ from pathlib import Path
 from uuid import uuid4
 from zipfile import ZipFile
 
-from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, flash, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -18,8 +18,8 @@ from utils.analytics_utils import build_chart_payload, build_dashboard_metrics, 
 from utils.qr_utils import build_product_qr, decode_qr_payload
 
 BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_DIR = BASE_DIR / "static" / "uploads"
-QR_DIR = BASE_DIR / "static" / "qr"
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(BASE_DIR / "static" / "uploads")))
+QR_DIR = Path(os.getenv("QR_DIR", str(BASE_DIR / "static" / "qr")))
 SCHEMA_PATH = BASE_DIR / "schema.sql"
 ALLOWED_EXCEL_EXTENSIONS = {"xlsx"}
 CATEGORIES = ["Kurtis", "Sarees", "Leggings", "Tops", "Dupattas", "Accessories"]
@@ -102,11 +102,11 @@ DEMO_USERS = {
     "manager": {"password": "manager123", "role": "manager"},
 }
 REGISTERED_FALLBACK_USERS = {}
-REPORT_STORE = {}
-REPORT_TOKEN_STORE = {}
+IS_PRODUCTION = os.getenv("RENDER") == "true" or os.getenv("FLASK_ENV", "").lower() == "production"
 
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-stock-management-secret")
+# UPDATED: Require env secret in production, but keep a local development fallback.
+app.secret_key = os.getenv("FLASK_SECRET_KEY") or ("dev-stock-management-secret" if not IS_PRODUCTION else None)
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_DIR)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 
@@ -173,10 +173,25 @@ def inject_globals():
 
 
 def initialize_app():
+    # UPDATED: Ensure local storage folders always exist on startup.
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    QR_DIR.mkdir(parents=True, exist_ok=True)
+    if IS_PRODUCTION and not app.secret_key:
+        raise RuntimeError("FLASK_SECRET_KEY must be set for production deployment.")
     if SCHEMA_PATH.exists():
         with open(SCHEMA_PATH, "r", encoding="utf-8") as schema_file:
             run_schema(schema_file.read())
     ensure_core_tables()
+
+
+@app.route("/media/qr/<path:filename>")
+def qr_media(filename):
+    return send_from_directory(QR_DIR, filename)
+
+
+@app.route("/media/uploads/<path:filename>")
+def upload_media(filename):
+    return send_from_directory(UPLOAD_DIR, filename)
 
 
 def allowed_file(filename, allowed_extensions):
@@ -681,8 +696,9 @@ def make_upload_report(filename, status, message, rows, metadata=None, report_ba
         "qr_filename": None,
         "view_token": report_batch.get("token") if report_batch else None,
     }
-    REPORT_STORE[report["id"]] = report
-    session["last_upload_report_id"] = report["id"]
+    # UPDATED: Persist the latest successful report by report_id instead of in-memory storage.
+    if report_batch and report_batch.get("report_id"):
+        session["last_upload_report_id"] = report_batch["report_id"]
     return report
 
 
@@ -1215,16 +1231,10 @@ def get_recent_reports(limit=None):
         }
         for row in report_rows
     ]
-    if reports:
-        return reports[:limit] if limit else reports
-    fallback_reports = list(reversed(list(REPORT_STORE.values())))
-    return fallback_reports[:limit] if limit else fallback_reports
+    return reports[:limit] if limit else reports
 
 
 def load_report_view(report_id):
-    report = REPORT_STORE.get(report_id)
-    if report:
-        return report
     report_row = fetch_one(
         """
         SELECT r.report_id, r.title, r.source_file_name, r.token, r.created_at, s.qr_filename, COUNT(d.id) AS row_count
@@ -1362,6 +1372,19 @@ def get_uploaded_report_by_id(report_id):
     )
 
 
+def get_uploaded_report_by_token(token):
+    if not token:
+        return None
+    return fetch_one(
+        """
+        SELECT report_id, title, created_by_admin, token, source_file_name, status, created_at
+        FROM uploaded_reports
+        WHERE token = :token
+        """,
+        {"token": token},
+    )
+
+
 def get_uploaded_report_by_source_file_name(source_file_name):
     if not source_file_name:
         return None
@@ -1386,6 +1409,11 @@ def get_uploaded_report_options(limit=12):
         FETCH FIRST {int(limit)} ROWS ONLY
         """
     )
+
+
+def count_uploaded_reports():
+    row = fetch_one("SELECT COUNT(*) AS total_reports FROM uploaded_reports")
+    return int(row.get("TOTAL_REPORTS", 0) or 0) if row else 0
 
 
 def extract_filename_from_catalog_title(title):
@@ -2100,7 +2128,7 @@ def admin_dashboard():
         recent_rows=recent_rows,
         users=users,
         reports=reports,
-        total_reports=len(REPORT_STORE),
+        total_reports=count_uploaded_reports(),
         latest_share=latest_share,
         shared_catalogs=get_shared_catalogs(5),
         orders=orders,
@@ -2390,18 +2418,18 @@ def upload():
                 )
                 return redirect(url_for("map_upload_columns"))
             if result["status"] != "success":
-                make_upload_report(upload_file.filename, "failed", result["message"], [], result.get("metadata", {}))
+                report = make_upload_report(upload_file.filename, "failed", result["message"], [], result.get("metadata", {}))
                 flash(result["message"], "error")
-                return redirect(url_for("upload_result"))
+                return render_template("upload_result.html", report=report)
             rows = result["rows"]
             for warning in result.get("metadata", {}).get("warnings", []):
                 flash(warning, "warning")
             upload_filename = upload_file.filename
 
         if not rows:
-            make_upload_report(request.form.get("product_name", "Manual entry"), "failed", "No valid inventory rows were found.", [])
+            report = make_upload_report(request.form.get("product_name", "Manual entry"), "failed", "No valid inventory rows were found.", [])
             flash("No valid inventory rows were found.", "error")
-            return redirect(url_for("upload_result"))
+            return render_template("upload_result.html", report=report)
 
         report_batch = create_uploaded_report_batch(
             locals().get("upload_filename", request.form.get("product_name", "Manual entry")),
@@ -2409,9 +2437,9 @@ def upload():
         )
         success, message = save_uploaded_rows(rows, report_batch)
         if not success:
-            make_upload_report(locals().get("upload_filename", "Manual entry"), "failed", message, rows, report_batch=report_batch)
+            report = make_upload_report(locals().get("upload_filename", "Manual entry"), "failed", message, rows, report_batch=report_batch)
             flash(message, "error")
-            return redirect(url_for("upload_result"))
+            return render_template("upload_result.html", report=report)
         make_upload_report(locals().get("upload_filename", "Manual entry"), "success", message, rows, locals().get("result", {}).get("metadata", {}), report_batch)
         log_activity("Inventory uploaded", f"{len(rows)} rows saved in report {report_batch['report_id']}")
         flash(message, "success")
@@ -2425,7 +2453,7 @@ def upload():
 @login_required
 @admin_required
 def upload_result():
-    report = REPORT_STORE.get(session.get("last_upload_report_id"))
+    report = load_report_view(session.get("last_upload_report_id")) if session.get("last_upload_report_id") else None
     if not report:
         flash("No upload result is available yet. Please upload a file or add a manual entry.", "warning")
         return redirect(url_for("upload"))
@@ -2448,7 +2476,6 @@ def generate_report_qr(report_id):
 
     token = catalog["TOKEN"]
     report["view_token"] = token
-    REPORT_TOKEN_STORE[token] = report_id
     view_url = build_catalog_link(token)
     qr_filename = build_url_qr(view_url)
     if not qr_filename:
@@ -2536,9 +2563,9 @@ def map_upload_columns():
         report_batch = create_uploaded_report_batch(filename, len(rows))
         save_success, save_message = save_uploaded_rows(rows, report_batch)
         if not save_success:
-            make_upload_report(filename, "failed", save_message, rows, metadata, report_batch)
+            report = make_upload_report(filename, "failed", save_message, rows, metadata, report_batch)
             flash(save_message, "error")
-            return redirect(url_for("upload_result"))
+            return render_template("upload_result.html", report=report)
         make_upload_report(filename, "success", save_message, rows, metadata, report_batch)
         for warning in metadata.get("warnings", []):
             flash(warning, "warning")
@@ -2703,8 +2730,8 @@ def view_data_lookup():
 def view_data(qr_token):
     if get_shared_catalog_by_token(qr_token):
         return redirect(url_for("catalog", token=qr_token))
-    report_id = REPORT_TOKEN_STORE.get(qr_token)
-    report = REPORT_STORE.get(report_id) if report_id else None
+    uploaded_report = get_uploaded_report_by_token(qr_token)
+    report = load_report_view(uploaded_report["REPORT_ID"]) if uploaded_report else None
     if not report:
         flash("This shared report link is invalid or has expired. Please ask the admin for a fresh QR code.", "error")
         return redirect_for_role(session.get("role"))
@@ -2977,6 +3004,20 @@ def api_product(product_id):
     return jsonify({"success": False, "message": "Product not found."}), 404
 
 
+@app.route("/health")
+def health():
+    # NEW: Simple health endpoint for Render health checks.
+    database_ok = bool(fetch_one("SELECT 1 AS ok"))
+    return jsonify(
+        {
+            "status": "ok" if database_ok else "degraded",
+            "database": "ok" if database_ok else "unavailable",
+            "uploads_dir": str(UPLOAD_DIR),
+            "qr_dir": str(QR_DIR),
+        }
+    ), (200 if database_ok else 503)
+
+
 @app.errorhandler(413)
 def file_too_large(_error):
     flash("That file is too large. Please upload a file under 10 MB.", "error")
@@ -2997,4 +3038,9 @@ initialize_app()
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # UPDATED: Local development runner. Production uses gunicorn main:app.
+    app.run(
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "5000")),
+        debug=os.getenv("FLASK_DEBUG", "false").lower() in {"1", "true", "yes"},
+    )

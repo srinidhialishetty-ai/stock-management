@@ -3,10 +3,25 @@ services:
     name: stock-management-site
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn main:app
+    startCommand: gunicorn main:app --workers 1 --threads 4
+    healthCheckPath: /health
+    disk:
+      name: stock-management-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: FLASK_SECRET_KEY
         generateValue: true
+      - key: FLASK_ENV
+        value: production
+      - key: SQLITE_PATH
+        value: /var/data/render_demo.db
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+      - key: QR_DIR
+        value: /var/data/qr
+      - key: USE_ORACLE
+        value: false
       - key: ORACLE_USER
         sync: false
       - key: ORACLE_PASSWORD

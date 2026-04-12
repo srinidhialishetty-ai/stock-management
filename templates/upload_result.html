@@ -63,7 +63,7 @@
         <h3>Report QR access</h3>
         <p>Generate a QR code so users can open the shared inventory catalog and place orders.</p>
         {% if report.qr_filename %}
-            <img class="qr-preview" src="{{ url_for('static', filename='qr/' ~ report.qr_filename) }}" alt="Report QR code">
+            <img class="qr-preview" src="{{ url_for('qr_media', filename=report.qr_filename) }}" alt="Report QR code">
             <p class="auth-helper">Shared route: {{ url_for('catalog', token=report.view_token, _external=True) }}</p>
         {% else %}
             <p>No QR code generated yet.</p>

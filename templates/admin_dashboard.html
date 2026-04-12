@@ -80,7 +80,7 @@
     <article class="feature-card">
         <h3>Latest QR access</h3>
         {% if latest_share and latest_share.QR_FILENAME %}
-            <img class="qr-preview" src="{{ url_for('static', filename='qr/' ~ latest_share.QR_FILENAME) }}" alt="Shared catalog QR">
+            <img class="qr-preview" src="{{ url_for('qr_media', filename=latest_share.QR_FILENAME) }}" alt="Shared catalog QR">
         {% else %}
             <p>Use a report action below to generate QR access, or share the latest catalog link directly.</p>
         {% endif %}

@@ -31,7 +31,7 @@
             <img class="chart-image top-gap" src="{{ product.IMAGE_URL }}" alt="{{ product.NAME }}">
         {% endif %}
         {% if qr_filename %}
-            <img class="qr-preview" src="{{ url_for('static', filename='qr/' ~ qr_filename) }}" alt="Product QR code">
+            <img class="qr-preview" src="{{ url_for('qr_media', filename=qr_filename) }}" alt="Product QR code">
             <p>This QR opens <code>/product/{{ product.PRODUCT_ID }}</code>.</p>
         {% else %}
             <p>Generate a QR code to create a scan-ready product link.</p>
