@@ -289,6 +289,7 @@ if (productSelect && quantityInput) {
 setupGlobalMotion();
 
 if (loginStage) {
+    document.body.classList.remove("login-cursor-enabled", "cursor-active");
     const panel = document.getElementById("login-panel");
     const roleButtons = Array.from(document.querySelectorAll(".login-role-card"));
     const roleIntent = document.getElementById("role-intent");
@@ -400,8 +401,14 @@ if (loginStage) {
         });
     }
 
-    if (cursor) cursor.style.display = "none";
-    if (cursorTrail) cursorTrail.style.display = "none";
+    if (cursor) {
+        cursor.style.display = "none";
+        cursor.style.opacity = "0";
+    }
+    if (cursorTrail) {
+        cursorTrail.style.display = "none";
+        cursorTrail.style.opacity = "0";
+    }
 
     requestAnimationFrame(() => {
         loginStage.classList.add("login-stage-ready");

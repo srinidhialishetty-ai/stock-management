@@ -2562,6 +2562,13 @@ body.site-cursor-enabled *::after {
     cursor: none !important;
 }
 
+body.site-cursor-enabled [data-login-page],
+body.site-cursor-enabled [data-login-page] *,
+body.site-cursor-enabled [data-login-page] *::before,
+body.site-cursor-enabled [data-login-page] *::after {
+    cursor: none !important;
+}
+
 body.login-cursor-enabled,
 body.login-cursor-enabled a,
 body.login-cursor-enabled button,
@@ -3958,9 +3965,14 @@ body.theme-night .footer {
 }
 
 .admin-hero .chronicle-header-copy p {
-    font-size: 1.08rem;
-    line-height: 1.78;
+    font-size: 1.16rem;
+    line-height: 1.8;
     max-width: 760px;
+    color: rgba(43, 43, 43, 0.86);
+}
+
+body.theme-night .admin-hero .chronicle-header-copy p {
+    color: rgba(237, 248, 237, 0.8);
 }
 
 .feature-card h3,
