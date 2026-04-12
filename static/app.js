@@ -218,12 +218,10 @@ function setupGlobalMotion() {
         showToast(node.textContent.trim(), tone);
     });
 
-    if (!loginStage && !prefersReducedMotion && finePointer && siteCursorDot && siteCursorHalo) {
+    if (!prefersReducedMotion && finePointer && siteCursorDot && siteCursorHalo) {
         document.body.classList.add("site-cursor-enabled");
         let cursorX = window.innerWidth / 2;
         let cursorY = window.innerHeight / 2;
-        let haloX = cursorX;
-        let haloY = cursorY;
 
         const interactiveNodes = document.querySelectorAll("a, button, input, select, textarea, .feature-card, .dashboard-card, .catalog-card, .chart-shell, .topbar");
         interactiveNodes.forEach((node) => {
@@ -235,16 +233,9 @@ function setupGlobalMotion() {
             cursorX = event.clientX;
             cursorY = event.clientY;
             siteCursorDot.style.transform = `translate3d(${cursorX}px, ${cursorY}px, 0) translate(-50%, -50%)`;
+            siteCursorHalo.style.transform = `translate3d(${cursorX}px, ${cursorY}px, 0) translate(-50%, -50%)`;
             document.body.classList.add("site-cursor-visible");
         });
-
-        function animateSiteCursor() {
-            haloX += (cursorX - haloX) * 0.14;
-            haloY += (cursorY - haloY) * 0.14;
-            siteCursorHalo.style.transform = `translate3d(${haloX}px, ${haloY}px, 0) translate(-50%, -50%)`;
-            requestAnimationFrame(animateSiteCursor);
-        }
-        animateSiteCursor();
     }
 
     const titleLines = Array.from(document.querySelectorAll(".hero-title > span"));
@@ -409,35 +400,8 @@ if (loginStage) {
         });
     }
 
-    if (cursor && cursorTrail && window.matchMedia("(pointer: fine)").matches) {
-        document.body.classList.add("login-cursor-enabled");
-        let currentX = window.innerWidth / 2;
-        let currentY = window.innerHeight / 2;
-        let trailX = currentX;
-        let trailY = currentY;
-
-        window.addEventListener("pointermove", (event) => {
-            currentX = event.clientX;
-            currentY = event.clientY;
-            cursor.style.transform = `translate3d(${currentX}px, ${currentY}px, 0) translate(-50%, -50%)`;
-            cursor.style.opacity = "1";
-            cursorTrail.style.opacity = "1";
-        });
-
-        const hoverables = document.querySelectorAll("a, button, input, select");
-        hoverables.forEach((node) => {
-            node.addEventListener("mouseenter", () => document.body.classList.add("cursor-active"));
-            node.addEventListener("mouseleave", () => document.body.classList.remove("cursor-active"));
-        });
-
-        function animateCursor() {
-            trailX += (currentX - trailX) * 0.14;
-            trailY += (currentY - trailY) * 0.14;
-            cursorTrail.style.transform = `translate3d(${trailX}px, ${trailY}px, 0) translate(-50%, -50%)`;
-            requestAnimationFrame(animateCursor);
-        }
-        animateCursor();
-    }
+    if (cursor) cursor.style.display = "none";
+    if (cursorTrail) cursorTrail.style.display = "none";
 
     requestAnimationFrame(() => {
         loginStage.classList.add("login-stage-ready");

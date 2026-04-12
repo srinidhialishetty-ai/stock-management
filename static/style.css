@@ -1662,6 +1662,11 @@ body.theme-night .cart-item {
     will-change: transform;
 }
 
+.login-cursor,
+.login-cursor-trail {
+    display: none;
+}
+
 .login-cursor {
     width: 16px;
     height: 16px;
@@ -2551,6 +2556,12 @@ body.site-cursor-enabled [role="button"] {
     cursor: none !important;
 }
 
+body.site-cursor-enabled *,
+body.site-cursor-enabled *::before,
+body.site-cursor-enabled *::after {
+    cursor: none !important;
+}
+
 body.login-cursor-enabled,
 body.login-cursor-enabled a,
 body.login-cursor-enabled button,
@@ -2558,6 +2569,12 @@ body.login-cursor-enabled input,
 body.login-cursor-enabled select,
 body.login-cursor-enabled textarea,
 body.login-cursor-enabled [role="button"] {
+    cursor: none !important;
+}
+
+body.login-cursor-enabled *,
+body.login-cursor-enabled *::before,
+body.login-cursor-enabled *::after {
     cursor: none !important;
 }
 
@@ -2646,6 +2663,12 @@ body.theme-night.cursor-active .login-cursor-trail {
         cursor: auto !important;
     }
 
+    body.site-cursor-enabled *,
+    body.site-cursor-enabled *::before,
+    body.site-cursor-enabled *::after {
+        cursor: auto !important;
+    }
+
     body.login-cursor-enabled,
     body.login-cursor-enabled a,
     body.login-cursor-enabled button,
@@ -2653,6 +2676,12 @@ body.theme-night.cursor-active .login-cursor-trail {
     body.login-cursor-enabled select,
     body.login-cursor-enabled textarea,
     body.login-cursor-enabled [role="button"] {
+        cursor: auto !important;
+    }
+
+    body.login-cursor-enabled *,
+    body.login-cursor-enabled *::before,
+    body.login-cursor-enabled *::after {
         cursor: auto !important;
     }
 }
@@ -2673,6 +2702,12 @@ body.theme-night.cursor-active .login-cursor-trail {
         cursor: auto !important;
     }
 
+    body.site-cursor-enabled *,
+    body.site-cursor-enabled *::before,
+    body.site-cursor-enabled *::after {
+        cursor: auto !important;
+    }
+
     body.login-cursor-enabled,
     body.login-cursor-enabled a,
     body.login-cursor-enabled button,
@@ -2680,6 +2715,12 @@ body.theme-night.cursor-active .login-cursor-trail {
     body.login-cursor-enabled select,
     body.login-cursor-enabled textarea,
     body.login-cursor-enabled [role="button"] {
+        cursor: auto !important;
+    }
+
+    body.login-cursor-enabled *,
+    body.login-cursor-enabled *::before,
+    body.login-cursor-enabled *::after {
         cursor: auto !important;
     }
 }
@@ -3914,6 +3955,12 @@ body.theme-night .footer {
 .catalog-copy p {
     font-size: 0.98rem;
     line-height: 1.72;
+}
+
+.admin-hero .chronicle-header-copy p {
+    font-size: 1.08rem;
+    line-height: 1.78;
+    max-width: 760px;
 }
 
 .feature-card h3,
