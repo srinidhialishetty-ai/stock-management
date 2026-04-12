@@ -1,10 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Shared Catalog | Stock Management with Inventory Analysis{% endblock %}
 {% block content %}
-<section class="page-header user-hero">
-    <span class="eyebrow">Shared catalog</span>
-    <h1>{{ catalog.TITLE }}</h1>
-    <p>Browse the exact admin-shared dataset, build a cart, and place a confirmed checkout order. Stock changes only after checkout.</p>
+<section class="page-header user-hero chronicle-header chronicle-catalog-header">
+    <div class="chronicle-header-copy">
+        <span class="eyebrow">Shared catalog</span>
+        <h1>{{ catalog.TITLE }}</h1>
+        <p>Browse the exact admin-shared dataset, build a cart, and place a confirmed checkout order. Stock changes only after checkout.</p>
+    </div>
+    <div class="chronicle-header-meta">
+        <div class="chronicle-meta-card">
+            <span>Token</span>
+            <strong>{{ catalog.TOKEN }}</strong>
+        </div>
+        <div class="chronicle-meta-card">
+            <span>Catalog value</span>
+            <strong>Rs. {{ "%.2f"|format(catalog_metrics.inventory_value) }}</strong>
+        </div>
+    </div>
 </section>
 
 <section class="dashboard-grid">

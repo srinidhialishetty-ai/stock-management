@@ -1,10 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Admin Dashboard | Stock Management with Inventory Analysis{% endblock %}
 {% block content %}
-<section class="page-header admin-hero">
-    <span class="eyebrow">Admin control center</span>
-    <h1>Manage uploads, inventory, reports, and QR access.</h1>
-    <p>Welcome, {{ current_user.username }}. This dashboard is built for system-wide inventory control and report distribution.</p>
+<section class="page-header admin-hero chronicle-header">
+    <div class="chronicle-header-copy">
+        <span class="eyebrow">Admin control center</span>
+        <h1>Manage uploads, inventory, reports, and QR access.</h1>
+        <p>Welcome, {{ current_user.username }}. This dashboard is built for system-wide inventory control and report distribution.</p>
+    </div>
+    <div class="chronicle-header-meta">
+        <div class="chronicle-meta-card">
+            <span>Role</span>
+            <strong>Administrator</strong>
+        </div>
+        <div class="chronicle-meta-card">
+            <span>Latest report</span>
+            <strong>{{ latest_uploaded_report.SOURCE_FILE_NAME if latest_uploaded_report else 'Waiting for upload' }}</strong>
+        </div>
+    </div>
 </section>
 
 <section class="dashboard-grid">

@@ -26,6 +26,56 @@
 </section>
 
 <section class="feature-card">
+    <div class="section-row">
+        <div>
+            <span class="eyebrow">Shared preview</span>
+            <h3>Latest shared products</h3>
+            {% if latest_share_report %}
+                <p class="auth-helper">Previewing {{ latest_share_report.TITLE or latest_share.TITLE }} in read-only mode.</p>
+            {% endif %}
+        </div>
+        {% if latest_share %}
+            <a class="btn btn-secondary" href="{{ url_for('catalog', token=latest_share.TOKEN) }}">Open Full Catalog</a>
+        {% endif %}
+    </div>
+    {% if latest_share and latest_share_products %}
+        <div class="catalog-grid top-gap">
+            {% for product in latest_share_products %}
+                <article class="catalog-card">
+                    {% if product.IMAGE_URL %}
+                        <img class="catalog-image" src="{{ product.IMAGE_URL }}" alt="{{ product.PRODUCT_NAME }}">
+                    {% else %}
+                        <div class="catalog-image catalog-image-fallback">{{ product.PRODUCT_NAME[:1] }}</div>
+                    {% endif %}
+                    <div class="catalog-copy">
+                        <div class="section-row">
+                            <h4>{{ product.PRODUCT_NAME }}</h4>
+                            {% if product.QUANTITY <= 0 %}
+                                <span class="status low">Out of stock</span>
+                            {% elif product.QUANTITY <= product.REORDER_LEVEL %}
+                                <span class="status low">Low stock</span>
+                            {% else %}
+                                <span class="status healthy">Ready</span>
+                            {% endif %}
+                        </div>
+                        <p>{{ product.CATEGORY }}</p>
+                        <div class="mini-list compact-list">
+                            <div class="mini-list-row"><span>Price</span><strong>Rs. {{ "%.2f"|format(product.PRICE) }}</strong></div>
+                            <div class="mini-list-row"><span>Available</span><strong>{{ product.QUANTITY }}</strong></div>
+                        </div>
+                    </div>
+                    <p class="auth-helper">Sign in as a user to add this item to cart and checkout.</p>
+                </article>
+            {% endfor %}
+        </div>
+    {% elif latest_share %}
+        <div class="soft-empty top-gap">The latest shared catalog is active, but no products are visible yet. Ask admin to refresh the shared dataset.</div>
+    {% else %}
+        <div class="soft-empty top-gap">No shared catalog is active yet.</div>
+    {% endif %}
+</section>
+
+<section class="feature-card">
     <h3>Recently viewed catalogs</h3>
     <div class="mini-list">
         {% for report in viewed_reports %}

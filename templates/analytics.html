@@ -1,10 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Analytics | Stock Management with Inventory Analysis{% endblock %}
 {% block content %}
-<section class="page-header analytics-hero">
-    <span class="eyebrow">Business analytics</span>
-    <h1>Inventory intelligence from real uploaded data.</h1>
-    <p>No demo products, no placeholder charts. This dashboard only reflects records stored or uploaded in your application.</p>
+<section class="page-header analytics-hero chronicle-header">
+    <div class="chronicle-header-copy">
+        <span class="eyebrow">Business analytics</span>
+        <h1>Inventory intelligence from real uploaded data.</h1>
+        <p>No demo products, no placeholder charts. This dashboard only reflects records stored or uploaded in your application.</p>
+    </div>
+    <div class="chronicle-header-meta">
+        <div class="chronicle-meta-card">
+            <span>Scope</span>
+            <strong>{{ active_report.TITLE if active_report else 'No active dataset' }}</strong>
+        </div>
+        <div class="chronicle-meta-card">
+            <span>Rows in preview</span>
+            <strong>{{ rows|length }}</strong>
+        </div>
+    </div>
 </section>
 
 <section class="grid-two">
@@ -187,6 +199,9 @@ const isNightMode = document.body.classList.contains("theme-night");
 const textColor = isNightMode ? "#EAFBF0" : "#2B2B2B";
 const mutedColor = isNightMode ? "rgba(234,251,240,0.58)" : "rgba(43,43,43,0.55)";
 const gridColor = isNightMode ? "rgba(122,255,195,0.12)" : "rgba(43,43,43,0.08)";
+const tooltipBg = isNightMode ? "rgba(5,8,7,0.96)" : "#fffaf4";
+const tooltipTitle = isNightMode ? "#f2fff3" : "#2B2B2B";
+const tooltipBody = isNightMode ? "#dff8e1" : "#5C5C5C";
 
 function makeGradient(ctx, colorA, colorB) {
     const gradient = ctx.createLinearGradient(0, 0, 500, 0);
@@ -206,7 +221,20 @@ function renderHorizontalBar(id, labels, values, colorA, colorB) {
             indexAxis: "y",
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false }, tooltip: { backgroundColor: "#14213D", padding: 12, cornerRadius: 12 } },
+            animation: { duration: 1100, easing: "easeOutQuart" },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: tooltipBg,
+                    titleColor: tooltipTitle,
+                    bodyColor: tooltipBody,
+                    borderWidth: 1,
+                    borderColor: isNightMode ? "rgba(122,255,195,0.14)" : "rgba(139,94,60,0.12)",
+                    padding: 14,
+                    cornerRadius: 14,
+                    displayColors: false
+                }
+            },
             scales: {
                 x: { grid: { color: gridColor }, ticks: { color: mutedColor, precision: 0 } },
                 y: { grid: { display: false }, ticks: { color: textColor, font: { weight: 600 } } }
@@ -227,8 +255,20 @@ function renderDonut() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: { animateRotate: true, duration: 1400, easing: "easeOutExpo" },
             cutout: "68%",
-            plugins: { legend: { position: "bottom", labels: { color: textColor, usePointStyle: true, padding: 18 } } }
+            plugins: {
+                legend: { position: "bottom", labels: { color: textColor, usePointStyle: true, padding: 18 } },
+                tooltip: {
+                    backgroundColor: tooltipBg,
+                    titleColor: tooltipTitle,
+                    bodyColor: tooltipBody,
+                    borderWidth: 1,
+                    borderColor: isNightMode ? "rgba(122,255,195,0.14)" : "rgba(139,94,60,0.12)",
+                    padding: 14,
+                    cornerRadius: 14
+                }
+            }
         }
     });
 }
@@ -246,7 +286,19 @@ function renderTrend() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            animation: { duration: 1200, easing: "easeOutQuart" },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: tooltipBg,
+                    titleColor: tooltipTitle,
+                    bodyColor: tooltipBody,
+                    borderWidth: 1,
+                    borderColor: isNightMode ? "rgba(122,255,195,0.14)" : "rgba(139,94,60,0.12)",
+                    padding: 14,
+                    cornerRadius: 14
+                }
+            },
             scales: {
                 x: { grid: { display: false }, ticks: { color: mutedColor } },
                 y: { grid: { color: gridColor }, ticks: { color: mutedColor, precision: 0 } }

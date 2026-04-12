@@ -2144,10 +2144,18 @@ def user_dashboard():
         return redirect(url_for("guest_dashboard"))
     viewed_reports = session.get("recent_viewed_reports", [])
     latest_share = get_latest_shared_catalog()
+    latest_share_products = []
+    latest_share_report = None
+    if latest_share:
+        latest_share_report = resolve_catalog_report_record(dict(latest_share))
+        report_id = latest_share_report["REPORT_ID"] if latest_share_report else latest_share.get("SOURCE_REPORT_ID")
+        latest_share_products = get_catalog_products(report_id)[:8] if report_id else []
     return render_template(
         "user_dashboard.html",
         viewed_reports=viewed_reports,
         latest_share=latest_share,
+        latest_share_report=latest_share_report,
+        latest_share_products=latest_share_products,
         latest_share_link=build_catalog_link(latest_share["TOKEN"]) if latest_share else "",
         orders=build_order_views(8),
         cart=cart_summary(),
@@ -2163,7 +2171,21 @@ def guest_dashboard():
         return redirect(url_for("manager_dashboard"))
     if session.get("role") == "user":
         return redirect(url_for("user_dashboard"))
-    return render_template("guest_dashboard.html", viewed_reports=session.get("recent_viewed_reports", []))
+    latest_share = get_latest_shared_catalog()
+    latest_share_products = []
+    latest_share_report = None
+    if latest_share:
+        latest_share_report = resolve_catalog_report_record(dict(latest_share))
+        report_id = latest_share_report["REPORT_ID"] if latest_share_report else latest_share.get("SOURCE_REPORT_ID")
+        latest_share_products = get_catalog_products(report_id)[:6] if report_id else []
+    return render_template(
+        "guest_dashboard.html",
+        viewed_reports=session.get("recent_viewed_reports", []),
+        latest_share=latest_share,
+        latest_share_report=latest_share_report,
+        latest_share_products=latest_share_products,
+        latest_share_link=build_catalog_link(latest_share["TOKEN"]) if latest_share else "",
+    )
 
 
 @app.route("/products")

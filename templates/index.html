@@ -1,35 +1,56 @@
 {% extends "base.html" %}
 {% block title %}Home | Stock Management with Inventory Analysis{% endblock %}
 {% block content %}
-<section class="hero">
-    <div class="hero-copy">
-        <span class="eyebrow">Built for growing fashion and retail businesses</span>
-        <h1>Run stock, sales, and business decisions from one premium control center.</h1>
-        <p>
-            Stop losing clarity to scattered spreadsheets and manual logs. Upload inventory through Excel or quick forms,
-            switch between admin, user, and guest access, and move from stock records to executive-ready analytics in one premium interface.
+<section class="hero hero-premium chronicle-hero">
+    <div class="hero-copy chronicle-hero-copy" data-depth="-10">
+        <div class="chronicle-kicker-row">
+            <span class="eyebrow">Built for growing fashion and retail businesses</span>
+            <span class="chronicle-kicker-note">Operational Commerce Layer</span>
+        </div>
+        <h1 class="hero-title">
+            <span>Move inventory with</span>
+            <span class="hero-title-accent">product-grade clarity.</span>
+        </h1>
+        <p class="chronicle-lead">
+            Replace scattered sheets, delayed stock updates, and disconnected order logs with one polished workflow for upload, analytics, shared catalogs, checkout, and decision-making.
         </p>
-        <div class="hero-actions">
+        <div class="chronicle-footnote">
+            <div class="chronicle-footnote-item">
+                <span>Live reporting</span>
+                <strong>Upload batches become shared, scoped catalogs</strong>
+            </div>
+            <div class="chronicle-footnote-item">
+                <span>Order intelligence</span>
+                <strong>Checkout updates stock only when the transaction is confirmed</strong>
+            </div>
+        </div>
+        <div class="hero-actions chronicle-hero-actions">
             <a class="btn btn-primary" href="{{ url_for('register') }}">Get Started</a>
             <a class="btn btn-secondary" href="{{ url_for('login') }}">Login</a>
         </div>
-        <div class="hero-stats">
-            <div class="metric-card">
+        <div class="hero-stats chronicle-hero-stats">
+            <div class="metric-card chronicle-stat-card">
                 <strong>{{ metrics.total_products }}</strong>
                 <span>products tracked</span>
             </div>
-            <div class="metric-card">
+            <div class="metric-card chronicle-stat-card">
                 <strong>{{ metrics.low_stock_items }}</strong>
                 <span>low-stock alerts</span>
             </div>
-            <div class="metric-card">
+            <div class="metric-card chronicle-stat-card">
                 <strong>Live</strong>
                 <span>built-in analytics</span>
             </div>
         </div>
     </div>
-    <div class="hero-panel">
-        <div class="mockup-window">
+    <div class="hero-panel chronicle-stage" data-depth="14">
+        <div class="hero-orb hero-orb-one"></div>
+        <div class="hero-orb hero-orb-two"></div>
+        <div class="chronicle-stage-layer chronicle-stage-back">
+            <span>Role-based workflows</span>
+            <strong>Operational clarity for modern teams</strong>
+        </div>
+        <div class="mockup-window chronicle-stage-front">
             <div class="mockup-header">
                 <span></span><span></span><span></span>
             </div>
@@ -54,9 +75,9 @@
                 </div>
                 <div class="mockup-table">
                     <div><b>Item</b><b>Stock</b><b>Status</b></div>
-                    <div><span>Printed Dupatta</span><span>9</span><span class="status low">Low</span></div>
-                    <div><span>Banarasi Saree</span><span>18</span><span class="status healthy">Healthy</span></div>
-                    <div><span>Cotton Leggings</span><span>55</span><span class="status healthy">Strong</span></div>
+                    <div><span>Ultrabook 14</span><span>9</span><span class="status low">Low</span></div>
+                    <div><span>27in Monitor</span><span>18</span><span class="status healthy">Healthy</span></div>
+                    <div><span>Wireless Keyboard</span><span>55</span><span class="status healthy">Strong</span></div>
                 </div>
             </div>
         </div>
