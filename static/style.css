@@ -1545,6 +1545,19 @@ body.theme-night .cart-item {
     gap: 18px;
 }
 
+.auth-layer-copy {
+    display: grid;
+    gap: 6px;
+    padding: 12px 14px 0;
+}
+
+.auth-layer-copy p {
+    margin: 0;
+    font-size: 0.92rem;
+    line-height: 1.65;
+    color: rgba(92, 92, 92, 0.76);
+}
+
 .login-form-copy h3 {
     margin: 0 0 8px;
     color: var(--heading);
@@ -1648,6 +1661,10 @@ body.theme-night .cart-item {
     display: flex;
     gap: 14px;
     flex-wrap: wrap;
+}
+
+.login-action-row-layered .btn {
+    flex: 1 1 220px;
 }
 
 .login-cursor,
@@ -1757,6 +1774,7 @@ body.theme-night .login-story p,
 body.theme-night .login-story-grid span,
 body.theme-night .login-role-card,
 body.theme-night .login-role-card small,
+body.theme-night .auth-layer-copy p,
 body.theme-night .login-form-copy p,
 body.theme-night .login-guest-card p {
     color: rgba(216, 231, 242, 0.74);

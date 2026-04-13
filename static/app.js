@@ -292,81 +292,13 @@ if (loginStage) {
     document.body.classList.remove("login-cursor-enabled", "cursor-active");
     const panel = document.getElementById("login-panel");
     const roleButtons = Array.from(document.querySelectorAll(".login-role-card"));
-    const roleIntent = document.getElementById("role-intent");
-    const roleTitle = document.getElementById("login-role-title");
-    const rolePill = document.getElementById("login-role-pill");
-    const formHeading = document.getElementById("login-form-heading");
-    const formSubtitle = document.getElementById("login-form-subtitle");
-    const loginSubmit = document.getElementById("login-submit");
-    const credentialForm = document.getElementById("credential-form");
-    const guestPanel = document.getElementById("guest-panel");
-    const usernameInput = document.getElementById("login-username");
-    const passwordInput = document.getElementById("login-password");
     const cursor = document.querySelector(".login-cursor");
     const cursorTrail = document.querySelector(".login-cursor-trail");
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    const roleContent = {
-        admin: {
-            title: "Admin Access",
-            pill: "ADMIN",
-            heading: "Authenticate into the management layer.",
-            subtitle: "Upload stock, manage reports, publish shared catalogs, and monitor the full business surface.",
-            button: "Enter Admin Workspace",
-        },
-        manager: {
-            title: "Manager Access",
-            pill: "MANAGER",
-            heading: "Enter the operations command layer.",
-            subtitle: "Track orders, monitor analytics, and keep fulfillment moving with a live operations view.",
-            button: "Open Manager Workspace",
-        },
-        user: {
-            title: "User Access",
-            pill: "USER",
-            heading: "Open the shared ordering experience.",
-            subtitle: "Browse shared catalogs, build a cart, and check out with live stock validation.",
-            button: "Enter User Portal",
-        },
-        guest: {
-            title: "Guest Access",
-            pill: "GUEST",
-            heading: "Preview the platform without credentials.",
-            subtitle: "Explore the shared product experience in read-only mode before switching into a full account.",
-            button: "Continue as Guest",
-        },
-    };
-
-    function activateRole(role) {
-        const config = roleContent[role] || roleContent.admin;
-        loginStage.dataset.activeRole = role;
-        roleButtons.forEach((button) => {
-            button.classList.toggle("is-active", button.dataset.role === role);
-        });
-        roleIntent.value = role;
-        roleTitle.textContent = config.title;
-        rolePill.textContent = config.pill;
-        formHeading.textContent = config.heading;
-        formSubtitle.textContent = config.subtitle;
-        loginSubmit.textContent = config.button;
-
-        const isGuest = role === "guest";
-        credentialForm.hidden = isGuest;
-        guestPanel.hidden = !isGuest;
-        if (usernameInput) {
-            usernameInput.required = !isGuest;
-        }
-        if (passwordInput) {
-            passwordInput.required = !isGuest;
-        }
-
-        panel.classList.remove("role-shift");
-        void panel.offsetWidth;
-        panel.classList.add("role-shift");
-    }
+    const activeRole = loginStage.dataset.activeRole || "user";
 
     roleButtons.forEach((button) => {
-        button.addEventListener("click", () => activateRole(button.dataset.role));
+        button.classList.toggle("is-active", button.dataset.role === activeRole);
     });
 
     const magneticTargets = Array.from(document.querySelectorAll(".magnetic"));
@@ -413,6 +345,4 @@ if (loginStage) {
     requestAnimationFrame(() => {
         loginStage.classList.add("login-stage-ready");
     });
-
-    activateRole("admin");
 }

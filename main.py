@@ -101,7 +101,6 @@ DEMO_USERS = {
     "user3": {"password": "pass123", "role": "user"},
     "manager": {"password": "manager123", "role": "manager"},
 }
-REGISTERED_FALLBACK_USERS = {}
 IS_PRODUCTION = os.getenv("RENDER") == "true" or os.getenv("FLASK_ENV", "").lower() == "production"
 
 app = Flask(__name__)
@@ -1987,22 +1986,30 @@ def reset_uploaded_inventory_data():
 
 def authenticate_from_database(username, password):
     try:
+        print(f"[AUTH] Checking database user: {username}")
         user, db_ok = try_get_user_by_username(username)
-        if not db_ok or not user:
+        if not db_ok:
+            print(f"[AUTH] Database lookup failed for user: {username}")
             return None
-        if not check_password_hash(user["PASSWORD"], password):
+        if not user:
+            print(f"[AUTH] No database user found: {username}")
+            return None
+        password_ok = check_password_hash(user["PASSWORD"], password)
+        print(f"[AUTH] Password hash validation for {username}: {'passed' if password_ok else 'failed'}")
+        if not password_ok:
             return None
         return {
             "user_id": user["USER_ID"],
             "username": user["USERNAME"],
             "role": user["ROLE"],
         }
-    except Exception:
+    except Exception as error:
+        print(f"[AUTH] Database authentication error for {username}: {error}")
         return None
 
 
 def authenticate_from_demo_users(username, password):
-    demo_user = DEMO_USERS.get(username.lower()) or REGISTERED_FALLBACK_USERS.get(username.lower())
+    demo_user = DEMO_USERS.get(username.lower())
     if not demo_user:
         return None
     if demo_user["password"] != password:
@@ -2015,10 +2022,35 @@ def authenticate_from_demo_users(username, password):
 
 
 def authenticate_user(username, password):
+    if username.lower() in DEMO_USERS:
+        demo_auth = authenticate_from_demo_users(username, password)
+        if demo_auth:
+            print(f"[AUTH] Logged in using built-in account: {username}")
+            return demo_auth
+
     database_auth = authenticate_from_database(username, password)
     if database_auth:
+        print(f"[AUTH] Logged in using database account: {username}")
         return database_auth
-    return authenticate_from_demo_users(username, password)
+
+    demo_auth = authenticate_from_demo_users(username, password)
+    if demo_auth:
+        print(f"[AUTH] Fallback demo login succeeded for: {username}")
+    return demo_auth
+
+
+def normalize_auth_view(raw_value):
+    value = str(raw_value or "main").strip().lower()
+    return value if value in {"main", "admin", "manager", "user"} else "main"
+
+
+def normalize_auth_mode(raw_value, auth_view):
+    value = str(raw_value or "login").strip().lower()
+    if auth_view == "manager":
+        return "login"
+    if auth_view == "main":
+        return "select"
+    return value if value in {"login", "register"} else "login"
 
 
 @app.route("/")
@@ -2035,54 +2067,71 @@ def contact():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    auth_view = normalize_auth_view(request.args.get("access", "main"))
+    auth_mode = normalize_auth_mode(request.args.get("mode", "login"), auth_view)
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
         if not username or not password:
             flash("Invalid username or password", "error")
-            return render_template("login.html")
+            return render_template("login.html", auth_view=auth_view, auth_mode=auth_mode)
 
         authenticated = authenticate_user(username, password)
         if not authenticated:
             flash("Invalid username or password", "error")
-            return render_template("login.html")
+            return render_template("login.html", auth_view=auth_view, auth_mode=auth_mode)
 
         set_user_session(authenticated["user_id"], authenticated["username"], authenticated["role"])
         session.pop("guest_inventory_rows", None)
         flash(f"Logged in as {authenticated['role'].title()}.", "success")
         return redirect_for_role(authenticated["role"])
 
-    return render_template("login.html")
+    return render_template("login.html", auth_view=auth_view, auth_mode=auth_mode)
 
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    auth_view = normalize_auth_view(request.args.get("access", "user"))
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
+        requested_role = request.form.get("role_intent", "user").strip().lower()
+        target_role = "user"
+        print(f"[AUTH] Registration attempt for username: {username}")
         if not username or not password:
             flash("Username and password are required.", "error")
-            return render_template("register.html")
+            return render_template("login.html", auth_view=auth_view, auth_mode="register")
 
         if get_user_by_username(username):
+            print(f"[AUTH] Registration blocked, duplicate username: {username}")
             flash("That username already exists. Please choose another one.", "error")
-            return render_template("register.html")
+            return render_template("login.html", auth_view=auth_view, auth_mode="register")
 
-        success, message, _ = create_user(username, generate_password_hash(password), "user")
+        if requested_role == "admin":
+            expected_code = os.getenv("ADMIN_REGISTRATION_CODE", "").strip()
+            provided_code = request.form.get("admin_access_code", "").strip()
+            if not expected_code or provided_code != expected_code:
+                flash("A valid admin access code is required to create a new admin account.", "error")
+                return render_template("login.html", auth_view="admin", auth_mode="register")
+            target_role = "admin"
+
+        success, message, _ = create_user(username, generate_password_hash(password), target_role)
+        print(f"[AUTH] Registration insert for {username}: {'succeeded' if success else 'failed'}")
         if not success:
             flash(message or "We could not create your account right now.", "error")
-            return render_template("register.html")
+            return render_template("login.html", auth_view=auth_view, auth_mode="register")
 
         user = get_user_by_username(username)
-        REGISTERED_FALLBACK_USERS[username.lower()] = {"password": password, "role": "user"}
+        print(f"[AUTH] Registration fetch-after-insert for {username}: {'found' if user else 'missing'}")
         if user:
             set_user_session(user["USER_ID"], user["USERNAME"], user["ROLE"])
         else:
-            set_user_session(None, username, "user")
+            flash("Your account was created, but login could not be completed automatically. Please sign in.", "warning")
+            return redirect(url_for("login", access=auth_view, mode="login"))
         flash("Your account is ready. Welcome in.", "success")
-        return redirect_for_role("user")
+        return redirect_for_role(user["ROLE"] if user else target_role)
 
-    return render_template("register.html")
+    return redirect(url_for("login", access=auth_view, mode="register"))
 
 
 @app.route("/guest-login")

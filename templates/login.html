@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Login | Stock Management with Inventory Analysis{% endblock %}
+{% set auth_view = auth_view|default('main') %}
+{% set auth_mode = auth_mode|default('select') %}
 {% block content %}
-<section class="login-stage" data-login-page data-active-role="admin">
+<section class="login-stage" data-login-page data-active-role="{{ 'user' if auth_view == 'main' else auth_view }}">
     <div class="login-noise"></div>
     <div class="login-gradient"></div>
     <div class="login-glow login-glow-one"></div>
@@ -16,20 +18,40 @@
     <div class="login-viewport">
         <div class="login-story" data-depth="-10">
             <span class="eyebrow">Product Entry Layer</span>
-            <h1>Step into the control surface for inventory, analytics, and live ordering.</h1>
-            <p>A cinematic access experience for teams running real stock operations, shared catalogs, and decision-ready dashboards.</p>
+            <h1>
+                {% if auth_view == 'main' %}
+                    Choose how you want to enter the platform.
+                {% elif auth_view == 'admin' %}
+                    Open the admin access surface for operations control.
+                {% elif auth_view == 'manager' %}
+                    Continue through the manager operations access page.
+                {% else %}
+                    Continue as an end user into the ordering experience.
+                {% endif %}
+            </h1>
+            <p>
+                {% if auth_view == 'main' %}
+                    Start from a clean access layer, then move into the correct sign-in or signup path for your role.
+                {% elif auth_view == 'admin' %}
+                    Existing admins can sign in, while protected admin creation stays behind a secure verification step.
+                {% elif auth_view == 'manager' %}
+                    Manager accounts continue through the existing sign-in path only. Public manager signup is not available.
+                {% else %}
+                    Existing users can sign in, and new users can register without affecting admin, manager, guest, or shopping workflows.
+                {% endif %}
+            </p>
             <div class="login-story-grid">
                 <article>
-                    <strong>Motion-first</strong>
-                    <span>Fluid transitions, magnetic controls, and deliberate depth.</span>
+                    <strong>Role-first</strong>
+                    <span>Access choices stay separated and intuitive before any credential step appears.</span>
                 </article>
                 <article>
-                    <strong>Role-aware</strong>
-                    <span>Admin, manager, user, and guest access each feel intentional.</span>
+                    <strong>Workflow-safe</strong>
+                    <span>Admin, manager, guest, and end-user behavior continue through the same routing logic.</span>
                 </article>
                 <article>
                     <strong>Business-ready</strong>
-                    <span>From upload to checkout, the flow feels like a product, not a form.</span>
+                    <span>From secure entry to catalog access and checkout, the product flow remains intact.</span>
                 </article>
             </div>
         </div>
@@ -37,67 +59,142 @@
         <div class="login-panel magnetic" id="login-panel" data-depth="14">
             <div class="login-panel-head">
                 <div>
-                    <span class="eyebrow">Access Modes</span>
-                    <h2 id="login-role-title">Admin Access</h2>
+                    <span class="eyebrow">
+                        {% if auth_view == 'main' %}Access Modes{% else %}Role Access{% endif %}
+                    </span>
+                    <h2>
+                        {% if auth_view == 'main' %}
+                            Choose Your Access Mode
+                        {% elif auth_view == 'admin' %}
+                            Admin Access
+                        {% elif auth_view == 'manager' %}
+                            Manager Access
+                        {% else %}
+                            End User Access
+                        {% endif %}
+                    </h2>
                 </div>
-                <span class="login-status-pill" id="login-role-pill">ADMIN</span>
+                <span class="login-status-pill">
+                    {% if auth_view == 'main' %}ACCESS{% elif auth_view == 'user' %}USER{% else %}{{ auth_view|upper }}{% endif %}
+                </span>
             </div>
 
-            <div class="login-role-grid">
-                <button class="login-role-card magnetic is-active" type="button" data-role="admin">
-                    <span class="login-role-icon">A</span>
-                    <strong>Admin</strong>
-                    <small>Inventory control, uploads, reports, analytics</small>
-                </button>
-                <button class="login-role-card magnetic" type="button" data-role="manager">
-                    <span class="login-role-icon">M</span>
-                    <strong>Manager</strong>
-                    <small>Operations, analytics, orders, fulfillment view</small>
-                </button>
-                <button class="login-role-card magnetic" type="button" data-role="user">
-                    <span class="login-role-icon">U</span>
-                    <strong>User</strong>
-                    <small>Shared catalog browsing, cart, checkout, orders</small>
-                </button>
-                <button class="login-role-card magnetic" type="button" data-role="guest">
-                    <span class="login-role-icon">G</span>
-                    <strong>Guest</strong>
-                    <small>Read-only preview of shared catalog experiences</small>
-                </button>
-            </div>
-
-            <div class="login-form-shell">
-                <div class="login-form-copy">
-                    <h3 id="login-form-heading">Authenticate into the management layer.</h3>
-                    <p id="login-form-subtitle">Sign in with your assigned credentials. Access stays clean, secure, and role-aware.</p>
+            {% if auth_view == 'main' %}
+                <div class="login-role-grid">
+                    <a class="login-role-card magnetic" href="{{ url_for('login', access='admin', mode='login') }}">
+                        <span class="login-role-icon">A</span>
+                        <strong>Admin</strong>
+                        <small>Inventory control, uploads, reports, analytics</small>
+                    </a>
+                    <a class="login-role-card magnetic" href="{{ url_for('login', access='manager', mode='login') }}">
+                        <span class="login-role-icon">M</span>
+                        <strong>Manager</strong>
+                        <small>Operations, analytics, orders, fulfillment view</small>
+                    </a>
+                    <a class="login-role-card magnetic" href="{{ url_for('guest_login') }}">
+                        <span class="login-role-icon">G</span>
+                        <strong>Guest</strong>
+                        <small>Read-only preview of shared catalog experiences</small>
+                    </a>
+                    <a class="login-role-card magnetic" href="{{ url_for('login', access='user', mode='login') }}">
+                        <span class="login-role-icon">U</span>
+                        <strong>End User</strong>
+                        <small>Shared catalog browsing, cart, checkout, orders</small>
+                    </a>
                 </div>
+            {% else %}
+                <div class="login-form-shell">
+                    <div class="login-form-copy">
+                        <h3>
+                            {% if auth_view == 'admin' %}
+                                {% if auth_mode == 'register' %}Create a protected admin account.{% else %}Sign in as an existing admin.{% endif %}
+                            {% elif auth_view == 'manager' %}
+                                Sign in as an existing manager.
+                            {% else %}
+                                {% if auth_mode == 'register' %}Create your end user account.{% else %}Sign in as an existing user.{% endif %}
+                            {% endif %}
+                        </h3>
+                        <p>
+                            {% if auth_view == 'admin' %}
+                                {% if auth_mode == 'register' %}
+                                    New admin creation remains protected and requires a valid admin access code.
+                                {% else %}
+                                    Use your assigned admin credentials to open the management workspace.
+                                {% endif %}
+                            {% elif auth_view == 'manager' %}
+                                Manager creation is handled separately by admin. This page supports existing manager sign-in only.
+                            {% else %}
+                                {% if auth_mode == 'register' %}
+                                    Create your account here, then continue into shared catalogs, cart, checkout, and order history.
+                                {% else %}
+                                    Use your existing user credentials to continue into the shared ordering experience.
+                                {% endif %}
+                            {% endif %}
+                        </p>
+                    </div>
 
-                <form class="login-form-panel" id="credential-form" method="post">
-                    <input type="hidden" name="role_intent" id="role-intent" value="admin">
-                    <label class="floating-field">
-                        <input type="text" name="username" id="login-username" placeholder=" " autocomplete="username" required>
-                        <span>Username</span>
-                    </label>
-                    <label class="floating-field">
-                        <input type="password" name="password" id="login-password" placeholder=" " autocomplete="current-password" required>
-                        <span>Password</span>
-                    </label>
-                    <button class="btn btn-primary login-submit magnetic" id="login-submit" type="submit">Enter Admin Workspace</button>
-                </form>
+                    <div class="login-action-row login-action-row-layered">
+                        {% if auth_view == 'admin' %}
+                            <a class="btn {% if auth_mode == 'login' %}btn-primary{% else %}btn-secondary{% endif %} magnetic" href="{{ url_for('login', access='admin', mode='login') }}">Existing Admin</a>
+                            <a class="btn {% if auth_mode == 'register' %}btn-primary{% else %}btn-secondary{% endif %} magnetic" href="{{ url_for('login', access='admin', mode='register') }}">New Admin</a>
+                        {% elif auth_view == 'user' %}
+                            <a class="btn {% if auth_mode == 'login' %}btn-primary{% else %}btn-secondary{% endif %} magnetic" href="{{ url_for('login', access='user', mode='login') }}">Existing User</a>
+                            <a class="btn {% if auth_mode == 'register' %}btn-primary{% else %}btn-secondary{% endif %} magnetic" href="{{ url_for('login', access='user', mode='register') }}">New User</a>
+                        {% else %}
+                            <span class="btn btn-primary magnetic is-static">Existing Manager</span>
+                        {% endif %}
+                    </div>
 
-                <div class="login-guest-panel" id="guest-panel" hidden>
-                    <div class="login-guest-card">
-                        <h3>Preview the product without account setup.</h3>
-                        <p>Guest mode opens a limited cinematic walkthrough of shared catalog access while keeping management tools protected.</p>
-                        <a class="btn btn-primary magnetic login-submit" href="{{ url_for('guest_login') }}">Continue as Guest</a>
+                    {% if auth_view == 'manager' or auth_mode == 'login' %}
+                        <form class="login-form-panel" method="post" action="{{ url_for('login', access=auth_view, mode='login') }}">
+                            <input type="hidden" name="role_intent" value="{{ auth_view }}">
+                            <label class="floating-field">
+                                <input type="text" name="username" placeholder=" " autocomplete="username" required>
+                                <span>Username</span>
+                            </label>
+                            <label class="floating-field">
+                                <input type="password" name="password" placeholder=" " autocomplete="current-password" required>
+                                <span>Password</span>
+                            </label>
+                            <button class="btn btn-primary login-submit magnetic" type="submit">
+                                {% if auth_view == 'admin' %}Enter Admin Workspace{% elif auth_view == 'manager' %}Open Manager Workspace{% else %}Enter User Portal{% endif %}
+                            </button>
+                        </form>
+                    {% else %}
+                        <form class="login-form-panel" method="post" action="{{ url_for('register', access=auth_view) }}">
+                            <input type="hidden" name="role_intent" value="{{ 'admin' if auth_view == 'admin' else 'user' }}">
+                            <label class="floating-field">
+                                <input type="email" name="email" placeholder=" " autocomplete="email">
+                                <span>Email</span>
+                            </label>
+                            <label class="floating-field">
+                                <input type="text" name="username" placeholder=" " autocomplete="username" required>
+                                <span>Username</span>
+                            </label>
+                            <label class="floating-field">
+                                <input type="password" name="password" placeholder=" " autocomplete="new-password" required>
+                                <span>Password</span>
+                            </label>
+                            {% if auth_view == 'admin' %}
+                                <label class="floating-field">
+                                    <input type="password" name="admin_access_code" placeholder=" " required>
+                                    <span>Admin Access Code</span>
+                                </label>
+                            {% endif %}
+                            <button class="btn btn-primary login-submit magnetic" type="submit">
+                                {% if auth_view == 'admin' %}Create Admin Account{% else %}Create User Account{% endif %}
+                            </button>
+                        </form>
+                    {% endif %}
+
+                    <div class="login-action-row">
+                        <a class="btn btn-secondary magnetic" href="{{ url_for('login') }}">Change Access Mode</a>
+                        {% if auth_view != 'manager' %}
+                            <a class="btn btn-secondary magnetic" href="{{ url_for('guest_login') }}">Guest Preview</a>
+                        {% endif %}
                     </div>
                 </div>
-
-                <div class="login-action-row">
-                    <a class="btn btn-secondary magnetic" href="{{ url_for('register') }}">Create New User</a>
-                    <a class="btn btn-secondary magnetic" href="{{ url_for('guest_login') }}">Guest Preview</a>
-                </div>
-            </div>
+            {% endif %}
         </div>
     </div>
 </section>
