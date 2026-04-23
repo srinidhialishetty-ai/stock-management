@@ -17,43 +17,29 @@
 
     <div class="login-viewport">
         <div class="login-story" data-depth="-10">
-            <span class="eyebrow">Product Entry Layer</span>
+            <span class="eyebrow">Access</span>
             <h1>
                 {% if auth_view == 'main' %}
-                    Choose how you want to enter the platform.
+                    Choose your access mode.
                 {% elif auth_view == 'admin' %}
-                    Open the admin access surface for operations control.
+                    Admin access.
                 {% elif auth_view == 'manager' %}
-                    Continue through the manager operations access page.
+                    Manager access.
                 {% else %}
-                    Continue as an end user into the ordering experience.
+                    User access.
                 {% endif %}
             </h1>
             <p>
                 {% if auth_view == 'main' %}
-                    Start from a clean access layer, then move into the correct sign-in or signup path for your role.
+                    Pick a role to continue.
                 {% elif auth_view == 'admin' %}
-                    Existing admins can sign in, while protected admin creation stays behind a secure verification step.
+                    Sign in or create a protected admin account.
                 {% elif auth_view == 'manager' %}
-                    Manager accounts continue through the existing sign-in path only. Public manager signup is not available.
+                    Continue with existing manager credentials.
                 {% else %}
-                    Existing users can sign in, and new users can register without affecting admin, manager, guest, or shopping workflows.
+                    Sign in or create an account to continue.
                 {% endif %}
             </p>
-            <div class="login-story-grid">
-                <article>
-                    <strong>Role-first</strong>
-                    <span>Access choices stay separated and intuitive before any credential step appears.</span>
-                </article>
-                <article>
-                    <strong>Workflow-safe</strong>
-                    <span>Admin, manager, guest, and end-user behavior continue through the same routing logic.</span>
-                </article>
-                <article>
-                    <strong>Business-ready</strong>
-                    <span>From secure entry to catalog access and checkout, the product flow remains intact.</span>
-                </article>
-            </div>
         </div>
 
         <div class="login-panel magnetic" id="login-panel" data-depth="14">
@@ -107,27 +93,27 @@
                     <div class="login-form-copy">
                         <h3>
                             {% if auth_view == 'admin' %}
-                                {% if auth_mode == 'register' %}Create a protected admin account.{% else %}Sign in as an existing admin.{% endif %}
+                                {% if auth_mode == 'register' %}Create an admin account.{% else %}Sign in as admin.{% endif %}
                             {% elif auth_view == 'manager' %}
-                                Sign in as an existing manager.
+                                Sign in as manager.
                             {% else %}
-                                {% if auth_mode == 'register' %}Create your end user account.{% else %}Sign in as an existing user.{% endif %}
+                                {% if auth_mode == 'register' %}Create your account.{% else %}Sign in as user.{% endif %}
                             {% endif %}
                         </h3>
                         <p>
                             {% if auth_view == 'admin' %}
                                 {% if auth_mode == 'register' %}
-                                    New admin creation remains protected and requires a valid admin access code.
+                                    Admin signup requires a valid access code.
                                 {% else %}
-                                    Use your assigned admin credentials to open the management workspace.
+                                    Use your admin credentials to continue.
                                 {% endif %}
                             {% elif auth_view == 'manager' %}
-                                Manager creation is handled separately by admin. This page supports existing manager sign-in only.
+                                Manager signup is handled separately.
                             {% else %}
                                 {% if auth_mode == 'register' %}
-                                    Create your account here, then continue into shared catalogs, cart, checkout, and order history.
+                                    Create an account to continue.
                                 {% else %}
-                                    Use your existing user credentials to continue into the shared ordering experience.
+                                    Use your existing credentials to continue.
                                 {% endif %}
                             {% endif %}
                         </p>

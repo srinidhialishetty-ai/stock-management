@@ -1,29 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Home | Stock Management with Inventory Analysis{% endblock %}
 {% block content %}
-<section class="hero hero-premium chronicle-hero">
+<section class="hero hero-premium chronicle-hero chronicle-hero--simple">
     <div class="hero-copy chronicle-hero-copy" data-depth="-10">
         <div class="chronicle-kicker-row">
-            <span class="eyebrow">Built for growing fashion and retail businesses</span>
-            <span class="chronicle-kicker-note">Operational Commerce Layer</span>
+            <span class="eyebrow">Inventory operations</span>
+            <span class="chronicle-kicker-note">Stock Management</span>
         </div>
         <h1 class="hero-title">
             <span>Move inventory with</span>
             <span class="hero-title-accent">product-grade clarity.</span>
         </h1>
         <p class="chronicle-lead">
-            Replace scattered sheets, delayed stock updates, and disconnected order logs with one polished workflow for upload, analytics, shared catalogs, checkout, and decision-making.
+            Upload inventory, track stock, and act on live insights from one clean workflow.
         </p>
-        <div class="chronicle-footnote">
-            <div class="chronicle-footnote-item">
-                <span>Live reporting</span>
-                <strong>Upload batches become shared, scoped catalogs</strong>
-            </div>
-            <div class="chronicle-footnote-item">
-                <span>Order intelligence</span>
-                <strong>Checkout updates stock only when the transaction is confirmed</strong>
-            </div>
-        </div>
         <div class="hero-actions chronicle-hero-actions">
             <a class="btn btn-primary" href="{{ url_for('register') }}">Get Started</a>
             <a class="btn btn-secondary" href="{{ url_for('login') }}">Login</a>
@@ -43,148 +33,36 @@
             </div>
         </div>
     </div>
-    <div class="hero-panel chronicle-stage" data-depth="14">
-        <div class="hero-orb hero-orb-one"></div>
-        <div class="hero-orb hero-orb-two"></div>
-        <div class="chronicle-stage-layer chronicle-stage-back">
-            <span>Role-based workflows</span>
-            <strong>Operational clarity for modern teams</strong>
-        </div>
-        <div class="mockup-window chronicle-stage-front">
-            <div class="mockup-header">
-                <span></span><span></span><span></span>
-            </div>
-            <div class="mockup-body">
-                <div class="mockup-summary">
-                    <article>
-                        <p>Inventory value</p>
-                        <h3>Rs. {{ "%.0f"|format(metrics.total_inventory_value) }}</h3>
-                    </article>
-                    <article>
-                        <p>Top category</p>
-                        <h3>{{ metrics.top_categories[0][0] if metrics.top_categories else "Upload Data" }}</h3>
-                    </article>
-                </div>
-                <div class="mockup-chart">
-                    <span style="height: 38%"></span>
-                    <span style="height: 55%"></span>
-                    <span style="height: 48%"></span>
-                    <span style="height: 78%"></span>
-                    <span style="height: 64%"></span>
-                    <span style="height: 92%"></span>
-                </div>
-                <div class="mockup-table">
-                    <div><b>Item</b><b>Stock</b><b>Status</b></div>
-                    <div><span>Ultrabook 14</span><span>9</span><span class="status low">Low</span></div>
-                    <div><span>27in Monitor</span><span>18</span><span class="status healthy">Healthy</span></div>
-                    <div><span>Wireless Keyboard</span><span>55</span><span class="status healthy">Strong</span></div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<section class="section alt-section" id="problems">
-    <div class="section-heading">
-        <span class="eyebrow">Common challenges</span>
-        <h2>Small businesses do not fail because of demand. They fail because stock moves without visibility.</h2>
-    </div>
-    <div class="grid-three">
-        <article class="feature-card">
-            <h3>Manual stock confusion</h3>
-            <p>Different notebooks, chats, and files make it hard to know the real quantity on hand.</p>
-        </article>
-        <article class="feature-card">
-            <h3>Sales and inventory disconnected</h3>
-            <p>Products sell quickly, but stock counts are not reduced in time, causing overselling and poor service.</p>
-        </article>
-        <article class="feature-card">
-            <h3>Insights arrive too late</h3>
-            <p>By the time you notice slow-moving or fast-selling items, profit opportunities are already gone.</p>
-        </article>
-    </div>
-</section>
-
-<section class="section" id="how-it-works">
-    <div class="section-heading">
-        <span class="eyebrow">How it works</span>
-        <h2>A streamlined stock workflow from input to action.</h2>
-    </div>
-    <div class="step-grid">
-        <div class="step-card"><strong>01</strong><h3>Sign in securely</h3><p>Create an account and enter a protected dashboard session.</p></div>
-        <div class="step-card"><strong>02</strong><h3>Upload inventory your way</h3><p>Use manual forms or Excel upload to add real-world records quickly.</p></div>
-        <div class="step-card"><strong>03</strong><h3>Apply role-based control</h3><p>Admins see everything, users work on their own data, and guests stay temporary.</p></div>
-        <div class="step-card"><strong>04</strong><h3>Act on insights</h3><p>Use built-in analytics, alerts, and business recommendations to make better stock decisions.</p></div>
-    </div>
 </section>
 
 <section class="section alt-section" id="features">
     <div class="section-heading">
-        <span class="eyebrow">Features</span>
-        <h2>Everything a practical stock operations team needs.</h2>
+        <span class="eyebrow">Essentials</span>
+        <h2>Only the core workflow, without the clutter.</h2>
     </div>
-    <div class="feature-showcase">
-        <article class="showcase-card">
-            <h3>Reliable authentication</h3>
-            <p>Session-based admin, user, and guest entry with seeded demo accounts and stable role-aware access.</p>
+    <div class="grid-three">
+        <article class="feature-card">
+            <h3>Upload inventory</h3>
+            <p>Capture stock through forms or spreadsheet import.</p>
         </article>
-        <article class="showcase-card">
-            <h3>Upload-first operations</h3>
-            <p>Capture inventory through manual entry or Excel import and keep the workflow practical for real teams.</p>
+        <article class="feature-card">
+            <h3>Track what matters</h3>
+            <p>Watch stock levels, value, and low-stock pressure in real time.</p>
         </article>
-        <article class="showcase-card">
-            <h3>Role-based visibility</h3>
-            <p>Admins can review all users and all uploaded data, while users stay focused on their own records.</p>
-        </article>
-        <article class="showcase-card">
-            <h3>Analytics that feel useful</h3>
-            <p>Category charts, stock trend views, low-stock alerts, and decision support are built in.</p>
+        <article class="feature-card">
+            <h3>Role-based access</h3>
+            <p>Keep admin, manager, user, and guest flows clearly separated.</p>
         </article>
     </div>
-</section>
-
-<section class="section standout-section">
-    <div class="standout-copy">
-        <span class="eyebrow">Standout showcase</span>
-        <h2>Analytics built for decision-making, not just reporting.</h2>
-        <p>
-            Owners can quickly see category distribution, low stock pressure, upload-driven trends,
-            and role-aware data visibility without leaving the website.
-        </p>
-    </div>
-    <div class="standout-panel">
-        <div class="insight-strip">
-            <span>Leading category: {{ metrics.top_categories[0][0] if metrics.top_categories else "No data yet" }}</span>
-            <span>Low stock: {{ metrics.low_stock_list[0].PRODUCT_NAME if metrics.low_stock_list else "Upload data to detect alerts" }}</span>
-        </div>
-        <div class="ring-card">
-            <div class="ring"></div>
-            <div>
-                <h3>Inventory Value View</h3>
-                <p>Monitor stock health, unit distribution, and action-ready alerts in one premium dashboard.</p>
-            </div>
-        </div>
-    </div>
-</section>
-
-<section class="section alt-section" id="about">
-    <div class="section-heading">
-        <span class="eyebrow">About</span>
-        <h2>Designed for SMEs that need clarity, speed, and confidence in stock operations.</h2>
-    </div>
-    <p class="section-copy">
-        This application combines stable authentication, role-based access, upload-first inventory analytics, and read-only report sharing into a realistic SaaS-style experience.
-        It is ideal for boutiques, apparel shops, and product businesses that want to operate more professionally without heavyweight ERP complexity.
-    </p>
 </section>
 
 <section class="section" id="contact-section">
     <div class="section-heading">
         <span class="eyebrow">Contact</span>
-        <h2>Start with a cleaner stock system today.</h2>
+        <h2>Start with a cleaner stock system.</h2>
     </div>
     <div class="contact-panel">
-        <p>Launch locally for demo, upload real inventory data, and use built-in analytics to review business decisions directly in the website.</p>
+        <p>Talk to us about setup, access, or getting your inventory online.</p>
         <a class="btn btn-primary" href="{{ url_for('contact') }}">Contact</a>
     </div>
 </section>

@@ -1382,6 +1382,10 @@ body.theme-night .cart-item {
     padding: 26px 12px 26px 8px;
 }
 
+.login-story > :last-child {
+    margin-bottom: 0;
+}
+
 .login-story h1 {
     margin: 10px 0 16px;
     max-width: 620px;
@@ -3104,6 +3108,15 @@ body.theme-night .order-card {
 .chronicle-hero {
     position: relative;
     padding: 26px 0 10px;
+}
+
+.chronicle-hero--simple {
+    grid-template-columns: 1fr;
+    min-height: auto;
+}
+
+.chronicle-hero--simple .chronicle-hero-copy {
+    max-width: 860px;
 }
 
 .chronicle-hero-copy {
