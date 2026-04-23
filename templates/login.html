@@ -146,6 +146,9 @@
                                 {% if auth_view == 'admin' %}Enter Admin Workspace{% elif auth_view == 'manager' %}Open Manager Workspace{% else %}Enter User Portal{% endif %}
                             </button>
                         </form>
+                        <div class="login-action-row">
+                            <a class="btn btn-secondary magnetic" href="{{ url_for('forgot_password') }}">Forgot Password</a>
+                        </div>
                     {% else %}
                         <form class="login-form-panel" method="post" action="{{ url_for('register', access=auth_view) }}">
                             <input type="hidden" name="role_intent" value="{{ 'admin' if auth_view == 'admin' else 'user' }}">

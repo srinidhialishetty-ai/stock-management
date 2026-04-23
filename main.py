@@ -17,7 +17,7 @@ from flask import Flask, flash, jsonify, redirect, render_template, request, sen
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
-from db import create_user, ensure_core_tables, fetch_all, fetch_one, get_all_users, get_inventory_rows_for_role, get_user_by_username, insert_inventory_rows, run_schema, safe_execute, try_get_user_by_username
+from db import create_user, ensure_core_tables, fetch_all, fetch_one, get_all_users, get_inventory_rows_for_role, get_user_by_identifier, get_user_by_username, insert_inventory_rows, run_schema, safe_execute, try_get_user_by_username, update_user_password
 from utils.analytics_utils import build_chart_payload, build_dashboard_metrics, build_insights, build_inventory_summary
 from utils.qr_utils import build_product_qr, decode_qr_payload
 
@@ -115,6 +115,7 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY") or ("dev-stock-management-secret"
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_DIR)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 app.config["ADMIN_CODE_EXPIRY_HOURS"] = int(os.getenv("ADMIN_CODE_EXPIRY_HOURS", "72"))
+app.config["PASSWORD_RESET_EXPIRY_MINUTES"] = int(os.getenv("PASSWORD_RESET_EXPIRY_MINUTES", "10"))
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 QR_DIR.mkdir(parents=True, exist_ok=True)
@@ -276,6 +277,138 @@ def send_admin_access_code_email(recipient_email, access_code, expires_at):
         return True, "Access code sent by email."
     except Exception:
         return False, "The code was generated, but email delivery failed."
+
+
+def generate_password_reset_code():
+    return "".join(secrets.choice(string.digits) for _ in range(6))
+
+
+def send_password_reset_email(recipient_email, reset_code, expires_at):
+    if not smtp_is_configured():
+        return False, "Email delivery is not configured."
+
+    message = EmailMessage()
+    message["Subject"] = "Your password reset code"
+    message["From"] = os.getenv("SMTP_FROM_EMAIL")
+    message["To"] = recipient_email
+    expiry_label = expires_at.strftime("%Y-%m-%d %H:%M UTC")
+    message.set_content(
+        "\n".join(
+            [
+                "We received a password reset request for your account.",
+                f"Reset code: {reset_code}",
+                f"Expires: {expiry_label}",
+                "If you did not request this, you can ignore this email.",
+            ]
+        )
+    )
+
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_username = os.getenv("SMTP_USERNAME", "")
+    smtp_password = os.getenv("SMTP_PASSWORD", "")
+    use_tls = os.getenv("SMTP_USE_TLS", "true").lower() in {"1", "true", "yes"}
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as server:
+            server.ehlo()
+            if use_tls:
+                server.starttls()
+                server.ehlo()
+            if smtp_username:
+                server.login(smtp_username, smtp_password)
+            server.send_message(message)
+        return True, "Password reset instructions were sent."
+    except Exception:
+        return False, "We generated a reset code, but email delivery failed."
+
+
+def invalidate_password_reset_tokens(user_id):
+    safe_execute(
+        """
+        UPDATE password_reset_tokens
+        SET used_at = CURRENT_TIMESTAMP
+        WHERE user_id = :user_id AND used_at IS NULL
+        """,
+        {"user_id": user_id},
+    )
+
+
+def create_password_reset_token(user_row):
+    user_id = user_row["USER_ID"]
+    email = user_row.get("EMAIL")
+    invalidate_password_reset_tokens(user_id)
+
+    reset_code = ""
+    for _ in range(8):
+        candidate = generate_password_reset_code()
+        existing = fetch_one(
+            """
+            SELECT id
+            FROM password_reset_tokens
+            WHERE reset_token = :reset_token AND used_at IS NULL
+            """,
+            {"reset_token": candidate},
+        )
+        if not existing:
+            reset_code = candidate
+            break
+    if not reset_code:
+        raise RuntimeError("Could not generate a unique reset code.")
+
+    expires_at = datetime.utcnow() + timedelta(minutes=app.config["PASSWORD_RESET_EXPIRY_MINUTES"])
+    safe_execute(
+        """
+        INSERT INTO password_reset_tokens (user_id, email, reset_token, expires_at)
+        VALUES (:user_id, :email, :reset_token, :expires_at)
+        """,
+        {
+            "user_id": user_id,
+            "email": email,
+            "reset_token": reset_code,
+            "expires_at": expires_at.strftime("%Y-%m-%d %H:%M:%S"),
+        },
+    )
+    return reset_code, expires_at
+
+
+def get_password_reset_token(reset_code):
+    return fetch_one(
+        """
+        SELECT id, user_id, email, reset_token, expires_at, used_at, created_at
+        FROM password_reset_tokens
+        WHERE reset_token = :reset_token
+        """,
+        {"reset_token": reset_code},
+    )
+
+
+def validate_password_reset_token(reset_code):
+    token_row = get_password_reset_token(reset_code)
+    if not token_row:
+        return None
+    if token_row.get("USED_AT"):
+        return None
+    expires_at = token_row.get("EXPIRES_AT")
+    if expires_at:
+        try:
+            expiry_dt = datetime.fromisoformat(str(expires_at).replace("T", " "))
+            if expiry_dt < datetime.utcnow():
+                return None
+        except ValueError:
+            return None
+    return token_row
+
+
+def mark_password_reset_token_used(token_id):
+    safe_execute(
+        """
+        UPDATE password_reset_tokens
+        SET used_at = CURRENT_TIMESTAMP
+        WHERE id = :token_id
+        """,
+        {"token_id": token_id},
+    )
 
 
 def get_admin_requests(limit=None):
@@ -2362,7 +2495,7 @@ def register():
                 return render_template("login.html", auth_view="admin", auth_mode="register")
             target_role = "admin"
 
-        success, message, _ = create_user(username, generate_password_hash(password), target_role)
+        success, message, _ = create_user(username, generate_password_hash(password), target_role, normalize_email(email) or None)
         print(f"[AUTH] Registration insert for {username}: {'succeeded' if success else 'failed'}")
         if not success:
             flash(message or "We could not create your account right now.", "error")
@@ -2429,6 +2562,73 @@ def request_admin_access():
         return redirect(url_for("login", access="admin", mode="register"))
 
     return render_template("request_admin_access.html")
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "POST":
+        identifier = request.form.get("identifier", "").strip()
+        generic_message = "If the account exists, reset instructions have been prepared."
+
+        if not identifier:
+            flash("Enter your email or username to continue.", "error")
+            return render_template("forgot_password.html")
+
+        user = get_user_by_identifier(identifier)
+        if not user:
+            flash(generic_message, "success")
+            return render_template("forgot_password.html")
+
+        try:
+            reset_code, expires_at = create_password_reset_token(user)
+        except RuntimeError:
+            flash("We could not generate a reset code right now. Please try again.", "error")
+            return render_template("forgot_password.html")
+
+        email = normalize_email(user.get("EMAIL"))
+        if email:
+            email_sent, delivery_message = send_password_reset_email(email, reset_code, expires_at)
+            if email_sent:
+                flash(generic_message, "success")
+            else:
+                flash(f"{generic_message} Reset code (Demo Mode): {reset_code}", "warning")
+        else:
+            flash(f"{generic_message} Reset code (Demo Mode): {reset_code}", "warning")
+        return redirect(url_for("reset_password"))
+
+    return render_template("forgot_password.html")
+
+
+@app.route("/reset-password", methods=["GET", "POST"])
+def reset_password():
+    if request.method == "POST":
+        reset_code = request.form.get("reset_code", "").strip()
+        new_password = request.form.get("new_password", "").strip()
+        confirm_password = request.form.get("confirm_password", "").strip()
+
+        if not reset_code or not new_password or not confirm_password:
+            flash("Enter the reset code and both password fields.", "error")
+            return render_template("reset_password.html")
+
+        if new_password != confirm_password:
+            flash("The new passwords do not match.", "error")
+            return render_template("reset_password.html")
+
+        token_row = validate_password_reset_token(reset_code)
+        if not token_row:
+            flash("That reset code is invalid or has expired.", "error")
+            return render_template("reset_password.html")
+
+        success, message, _ = update_user_password(token_row["USER_ID"], generate_password_hash(new_password))
+        if not success:
+            flash(message or "We could not update the password right now.", "error")
+            return render_template("reset_password.html")
+
+        mark_password_reset_token_used(token_row["ID"])
+        flash("Your password has been reset. You can sign in now.", "success")
+        return redirect(url_for("login"))
+
+    return render_template("reset_password.html")
 
 
 @app.route("/guest-login")
