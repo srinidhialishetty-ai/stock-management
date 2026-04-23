@@ -65,7 +65,7 @@ function setupGlobalMotion() {
 
     revealTargets.forEach((node, index) => {
         node.classList.add("motion-reveal");
-        node.style.setProperty("--motion-delay", `${Math.min(index * 36, 420)}ms`);
+        node.style.setProperty("--motion-delay", `${Math.min(index * 18, 220)}ms`);
     });
 
     if (!prefersReducedMotion && "IntersectionObserver" in window) {
@@ -76,7 +76,7 @@ function setupGlobalMotion() {
                     revealObserver.unobserve(entry.target);
                 }
             });
-        }, { threshold: 0.14, rootMargin: "0px 0px -8% 0px" });
+        }, { threshold: 0.1, rootMargin: "0px 0px -4% 0px" });
 
         revealTargets.forEach((node) => revealObserver.observe(node));
     } else {
@@ -99,7 +99,7 @@ function setupGlobalMotion() {
         const prefix = node.textContent.includes("Rs.") ? "Rs. " : "";
         const suffix = node.textContent.trim().endsWith("%") ? "%" : "";
         const decimals = String(node.textContent).includes(".") ? 2 : 0;
-        const duration = 1050;
+        const duration = 760;
         const start = performance.now();
 
         function step(now) {
@@ -145,7 +145,7 @@ function setupGlobalMotion() {
                 const rect = card.getBoundingClientRect();
                 const x = (event.clientX - rect.left) / rect.width - 0.5;
                 const y = (event.clientY - rect.top) / rect.height - 0.5;
-                card.style.transform = `perspective(1200px) rotateX(${y * -3.4}deg) rotateY(${x * 4.6}deg) translateY(-4px)`;
+                card.style.transform = `perspective(1200px) rotateX(${y * -1.6}deg) rotateY(${x * 2.2}deg) translateY(-1px)`;
             });
             card.addEventListener("mouseleave", () => {
                 card.style.transform = "";
@@ -172,7 +172,7 @@ function setupGlobalMotion() {
             const y = event.clientY / window.innerHeight - 0.5;
             depthNodes.forEach((node) => {
                 const depth = Number(node.dataset.depth || 0);
-                node.style.transform = `translate3d(${x * depth}px, ${y * depth}px, 0)`;
+                node.style.transform = `translate3d(${x * depth * 0.35}px, ${y * depth * 0.35}px, 0)`;
             });
         });
     }
@@ -182,8 +182,8 @@ function setupGlobalMotion() {
         target.addEventListener("mousemove", (event) => {
             if (prefersReducedMotion || !finePointer) return;
             const rect = target.getBoundingClientRect();
-            const offsetX = ((event.clientX - rect.left) / rect.width - 0.5) * 8;
-            const offsetY = ((event.clientY - rect.top) / rect.height - 0.5) * 8;
+            const offsetX = ((event.clientX - rect.left) / rect.width - 0.5) * 3;
+            const offsetY = ((event.clientY - rect.top) / rect.height - 0.5) * 3;
             target.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
         });
         target.addEventListener("mouseleave", () => {
@@ -201,7 +201,7 @@ function setupGlobalMotion() {
                 const cartLink = document.querySelector("[data-cart-link]");
                 if (cartLink) {
                     cartLink.classList.add("cart-link-bounce");
-                    window.setTimeout(() => cartLink.classList.remove("cart-link-bounce"), 700);
+                    window.setTimeout(() => cartLink.classList.remove("cart-link-bounce"), 360);
                 }
             } else if (label.includes("proceed to checkout") || label.includes("go to checkout")) {
                 showToast("Opening checkout with live stock validation.", "info");
@@ -209,7 +209,7 @@ function setupGlobalMotion() {
                 showToast("Confirming your order and updating live stock.", "success");
             }
             button.classList.add("action-pulse");
-            window.setTimeout(() => button.classList.remove("action-pulse"), 460);
+            window.setTimeout(() => button.classList.remove("action-pulse"), 240);
         });
     });
 
@@ -245,7 +245,7 @@ function setupGlobalMotion() {
         line.textContent = "";
         const inner = document.createElement("span");
         inner.className = "line-reveal";
-        inner.style.setProperty("--line-delay", `${220 + index * 120}ms`);
+        inner.style.setProperty("--line-delay", `${90 + index * 70}ms`);
         inner.textContent = text;
         line.appendChild(inner);
     });
@@ -255,7 +255,7 @@ function setupGlobalMotion() {
         if (heading.dataset.motionReady === "true") return;
         heading.dataset.motionReady = "true";
         heading.classList.add("motion-reveal");
-        heading.style.setProperty("--motion-delay", "120ms");
+        heading.style.setProperty("--motion-delay", "80ms");
     });
 }
 
@@ -306,9 +306,9 @@ if (loginStage) {
         target.addEventListener("mousemove", (event) => {
             if (prefersReducedMotion) return;
             const rect = target.getBoundingClientRect();
-            const offsetX = ((event.clientX - rect.left) / rect.width - 0.5) * 10;
-            const offsetY = ((event.clientY - rect.top) / rect.height - 0.5) * 10;
-            target.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(1.01)`;
+            const offsetX = ((event.clientX - rect.left) / rect.width - 0.5) * 4;
+            const offsetY = ((event.clientY - rect.top) / rect.height - 0.5) * 4;
+            target.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(1.003)`;
         });
         target.addEventListener("mouseleave", () => {
             target.style.transform = "";
@@ -323,12 +323,12 @@ if (loginStage) {
 
             depthNodes.forEach((node) => {
                 const depth = Number(node.dataset.depth || 0);
-                node.style.transform = `translate3d(${x * depth}px, ${y * depth}px, 0)`;
+                node.style.transform = `translate3d(${x * depth * 0.3}px, ${y * depth * 0.3}px, 0)`;
             });
 
             if (panel) {
-                panel.style.setProperty("--tilt-x", `${y * -7}deg`);
-                panel.style.setProperty("--tilt-y", `${x * 9}deg`);
+                panel.style.setProperty("--tilt-x", `${y * -2.2}deg`);
+                panel.style.setProperty("--tilt-y", `${x * 2.8}deg`);
             }
         });
     }
