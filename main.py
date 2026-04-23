@@ -1,9 +1,13 @@
 import json
 import os
 import re
+import secrets
+import smtplib
+import string
 import xml.etree.ElementTree as ET
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
+from email.message import EmailMessage
 from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
@@ -20,8 +24,10 @@ from utils.qr_utils import build_product_qr, decode_qr_payload
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(BASE_DIR / "static" / "uploads")))
 QR_DIR = Path(os.getenv("QR_DIR", str(BASE_DIR / "static" / "qr")))
+ADMIN_PROOF_DIR = BASE_DIR / "static" / "admin_request_proofs"
 SCHEMA_PATH = BASE_DIR / "schema.sql"
 ALLOWED_EXCEL_EXTENSIONS = {"xlsx"}
+ALLOWED_PROOF_EXTENSIONS = {"png", "jpg", "jpeg", "pdf", "txt", "doc", "docx"}
 CATEGORIES = ["Kurtis", "Sarees", "Leggings", "Tops", "Dupattas", "Accessories"]
 REQUIRED_EXCEL_FIELDS = ["product_name", "price", "quantity"]
 EXCEL_MAPPING_FIELDS = ["product_name", "category", "price", "quantity", "date"]
@@ -108,9 +114,11 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY") or ("dev-stock-management-secret" if not IS_PRODUCTION else None)
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_DIR)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
+app.config["ADMIN_CODE_EXPIRY_HOURS"] = int(os.getenv("ADMIN_CODE_EXPIRY_HOURS", "72"))
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 QR_DIR.mkdir(parents=True, exist_ok=True)
+ADMIN_PROOF_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def login_required(view_func):
@@ -175,6 +183,7 @@ def initialize_app():
     # UPDATED: Ensure local storage folders always exist on startup.
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     QR_DIR.mkdir(parents=True, exist_ok=True)
+    ADMIN_PROOF_DIR.mkdir(parents=True, exist_ok=True)
     if IS_PRODUCTION and not app.secret_key:
         raise RuntimeError("FLASK_SECRET_KEY must be set for production deployment.")
     if SCHEMA_PATH.exists():
@@ -193,8 +202,243 @@ def upload_media(filename):
     return send_from_directory(UPLOAD_DIR, filename)
 
 
+@app.route("/media/admin-request-proofs/<path:filename>")
+@login_required
+@admin_required
+def admin_request_proof_media(filename):
+    return send_from_directory(ADMIN_PROOF_DIR, filename)
+
+
 def allowed_file(filename, allowed_extensions):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in allowed_extensions
+
+
+def normalize_email(value):
+    return (value or "").strip().lower()
+
+
+def generate_admin_access_code(length=8):
+    alphabet = string.ascii_uppercase + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def save_admin_request_proof(file_storage):
+    if not file_storage or not file_storage.filename:
+        return ""
+    if not allowed_file(file_storage.filename, ALLOWED_PROOF_EXTENSIONS):
+        raise ValueError("Proof file must be PNG, JPG, PDF, TXT, DOC, or DOCX.")
+    filename = secure_filename(file_storage.filename)
+    stored_name = f"{uuid4().hex}_{filename}"
+    destination = ADMIN_PROOF_DIR / stored_name
+    file_storage.save(destination)
+    return stored_name
+
+
+def smtp_is_configured():
+    return bool(os.getenv("SMTP_HOST") and os.getenv("SMTP_FROM_EMAIL"))
+
+
+def send_admin_access_code_email(recipient_email, access_code, expires_at):
+    if not smtp_is_configured():
+        return False, "Email delivery is not configured."
+
+    message = EmailMessage()
+    message["Subject"] = "Your admin access code"
+    message["From"] = os.getenv("SMTP_FROM_EMAIL")
+    message["To"] = recipient_email
+    expiry_label = expires_at.strftime("%Y-%m-%d %H:%M UTC") if expires_at else "No expiry"
+    message.set_content(
+        "\n".join(
+            [
+                "Your admin access request was approved.",
+                f"Access code: {access_code}",
+                f"Expires: {expiry_label}",
+                "This code is single-use.",
+            ]
+        )
+    )
+
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_username = os.getenv("SMTP_USERNAME", "")
+    smtp_password = os.getenv("SMTP_PASSWORD", "")
+    use_tls = os.getenv("SMTP_USE_TLS", "true").lower() in {"1", "true", "yes"}
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as server:
+            server.ehlo()
+            if use_tls:
+                server.starttls()
+                server.ehlo()
+            if smtp_username:
+                server.login(smtp_username, smtp_password)
+            server.send_message(message)
+        return True, "Access code sent by email."
+    except Exception:
+        return False, "The code was generated, but email delivery failed."
+
+
+def get_admin_requests(limit=None):
+    limit_clause = f"FETCH FIRST {int(limit)} ROWS ONLY" if limit else ""
+    return fetch_all(
+        f"""
+        SELECT
+            r.id,
+            r.name,
+            r.email,
+            r.username,
+            r.reason,
+            r.business_name,
+            r.proof,
+            r.proof_file_path,
+            r.status,
+            r.reviewed_by,
+            r.reviewed_at,
+            r.created_at,
+            (
+                SELECT c.code
+                FROM admin_access_codes c
+                WHERE c.request_id = r.id AND c.status = 'active' AND c.used_at IS NULL
+                ORDER BY c.created_at DESC
+                FETCH FIRST 1 ROWS ONLY
+            ) AS latest_code,
+            (
+                SELECT c.expires_at
+                FROM admin_access_codes c
+                WHERE c.request_id = r.id AND c.status = 'active' AND c.used_at IS NULL
+                ORDER BY c.created_at DESC
+                FETCH FIRST 1 ROWS ONLY
+            ) AS latest_code_expires_at
+        FROM admin_requests r
+        ORDER BY r.created_at DESC, r.id DESC
+        {limit_clause}
+        """
+    )
+
+
+def get_admin_request_by_id(request_id):
+    return fetch_one(
+        """
+        SELECT id, name, email, username, reason, business_name, proof, proof_file_path, status, reviewed_by, reviewed_at, created_at
+        FROM admin_requests
+        WHERE id = :request_id
+        """,
+        {"request_id": request_id},
+    )
+
+
+def get_generated_admin_code(code):
+    return fetch_one(
+        """
+        SELECT id, request_id, email, code, status, expires_at, used_at, generated_by, created_at
+        FROM admin_access_codes
+        WHERE UPPER(code) = UPPER(:code)
+        """,
+        {"code": code},
+    )
+
+
+def deactivate_admin_codes_for_request(request_id):
+    safe_execute(
+        """
+        UPDATE admin_access_codes
+        SET status = 'inactive'
+        WHERE request_id = :request_id AND status = 'active' AND used_at IS NULL
+        """,
+        {"request_id": request_id},
+    )
+
+
+def create_admin_access_code(request_row):
+    request_id = request_row["ID"]
+    deactivate_admin_codes_for_request(request_id)
+
+    code = ""
+    for _ in range(8):
+        candidate = generate_admin_access_code(length=8)
+        if not get_generated_admin_code(candidate):
+            code = candidate
+            break
+    if not code:
+        raise RuntimeError("Could not generate a unique admin access code.")
+
+    expires_at = datetime.utcnow() + timedelta(hours=app.config["ADMIN_CODE_EXPIRY_HOURS"])
+    safe_execute(
+        """
+        INSERT INTO admin_access_codes (request_id, email, code, status, expires_at, generated_by)
+        VALUES (:request_id, :email, :code, :status, :expires_at, :generated_by)
+        """,
+        {
+            "request_id": request_id,
+            "email": request_row["EMAIL"],
+            "code": code,
+            "status": "active",
+            "expires_at": expires_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "generated_by": session.get("user_id"),
+        },
+    )
+    safe_execute(
+        """
+        UPDATE admin_requests
+        SET status = 'approved', reviewed_by = :reviewed_by, reviewed_at = CURRENT_TIMESTAMP
+        WHERE id = :request_id
+        """,
+        {"reviewed_by": session.get("user_id"), "request_id": request_id},
+    )
+    return code, expires_at
+
+
+def reject_admin_request(request_id):
+    safe_execute(
+        """
+        UPDATE admin_requests
+        SET status = 'rejected', reviewed_by = :reviewed_by, reviewed_at = CURRENT_TIMESTAMP
+        WHERE id = :request_id
+        """,
+        {"reviewed_by": session.get("user_id"), "request_id": request_id},
+    )
+    safe_execute(
+        """
+        UPDATE admin_access_codes
+        SET status = 'inactive'
+        WHERE request_id = :request_id AND status = 'active' AND used_at IS NULL
+        """,
+        {"request_id": request_id},
+    )
+
+
+def validate_generated_admin_code(code, email=""):
+    code_row = get_generated_admin_code(code)
+    if not code_row:
+        return None
+    if (code_row.get("STATUS") or "").lower() != "active":
+        return None
+    if code_row.get("USED_AT"):
+        return None
+    expires_at = code_row.get("EXPIRES_AT")
+    if expires_at:
+        try:
+            expiry_dt = datetime.fromisoformat(str(expires_at).replace("T", " "))
+            if expiry_dt < datetime.utcnow():
+                return None
+        except ValueError:
+            pass
+    code_email = normalize_email(code_row.get("EMAIL"))
+    provided_email = normalize_email(email)
+    if provided_email and code_email and provided_email != code_email:
+        return None
+    return code_row
+
+
+def mark_generated_admin_code_used(code_id):
+    safe_execute(
+        """
+        UPDATE admin_access_codes
+        SET status = 'used', used_at = CURRENT_TIMESTAMP
+        WHERE id = :code_id
+        """,
+        {"code_id": code_id},
+    )
 
 
 def parse_decimal(value, field_name):
@@ -2093,6 +2337,7 @@ def login():
 def register():
     auth_view = normalize_auth_view(request.args.get("access", "user"))
     if request.method == "POST":
+        email = request.form.get("email", "").strip()
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
         requested_role = request.form.get("role_intent", "user").strip().lower()
@@ -2110,7 +2355,9 @@ def register():
         if requested_role == "admin":
             expected_code = os.getenv("ADMIN_REGISTRATION_CODE", "").strip()
             provided_code = request.form.get("admin_access_code", "").strip()
-            if not expected_code or provided_code != expected_code:
+            generated_code = validate_generated_admin_code(provided_code, email)
+            env_code_valid = bool(expected_code and provided_code == expected_code)
+            if not env_code_valid and not generated_code:
                 flash("A valid admin access code is required to create a new admin account.", "error")
                 return render_template("login.html", auth_view="admin", auth_mode="register")
             target_role = "admin"
@@ -2128,10 +2375,60 @@ def register():
         else:
             flash("Your account was created, but login could not be completed automatically. Please sign in.", "warning")
             return redirect(url_for("login", access=auth_view, mode="login"))
+        if requested_role == "admin" and not env_code_valid and generated_code:
+            mark_generated_admin_code_used(generated_code["ID"])
+            log_activity("Admin account created", f"Request-based admin signup completed for {username}")
         flash("Your account is ready. Welcome in.", "success")
         return redirect_for_role(user["ROLE"] if user else target_role)
 
     return redirect(url_for("login", access=auth_view, mode="register"))
+
+
+@app.route("/request-admin-access", methods=["GET", "POST"])
+def request_admin_access():
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        email = request.form.get("email", "").strip()
+        username = request.form.get("username", "").strip()
+        reason = request.form.get("reason", "").strip()
+        business_name = request.form.get("business_name", "").strip()
+        proof = request.form.get("proof", "").strip()
+        proof_file = request.files.get("proof_file")
+
+        if not name or not email or not reason:
+            flash("Name, email, and a reason are required so we can review your request.", "error")
+            return render_template("request_admin_access.html")
+
+        try:
+            proof_file_path = save_admin_request_proof(proof_file)
+        except ValueError as error:
+            flash(str(error), "error")
+            return render_template("request_admin_access.html")
+
+        success, message, _ = safe_execute(
+            """
+            INSERT INTO admin_requests (name, email, username, reason, business_name, proof, proof_file_path, status)
+            VALUES (:name, :email, :username, :reason, :business_name, :proof, :proof_file_path, :status)
+            """,
+            {
+                "name": name,
+                "email": email,
+                "username": username or None,
+                "reason": reason,
+                "business_name": business_name or None,
+                "proof": proof or None,
+                "proof_file_path": proof_file_path or None,
+                "status": "pending",
+            },
+        )
+        if not success:
+            flash(message or "We could not save your request right now.", "error")
+            return render_template("request_admin_access.html")
+
+        flash("Your admin access request was submitted. We’ll review it and share the code after approval.", "success")
+        return redirect(url_for("login", access="admin", mode="register"))
+
+    return render_template("request_admin_access.html")
 
 
 @app.route("/guest-login")
@@ -2169,6 +2466,7 @@ def admin_dashboard():
     latest_share = get_latest_shared_catalog()
     orders = build_order_views(8)
     latest_uploaded_report = get_latest_uploaded_report()
+    admin_requests = get_admin_requests()
     return render_template(
         "admin_dashboard.html",
         metrics=metrics,
@@ -2184,7 +2482,53 @@ def admin_dashboard():
         latest_share_link=build_catalog_link(latest_share["TOKEN"]) if latest_share else "",
         latest_uploaded_report=latest_uploaded_report,
         recent_activity=get_recent_activity(8),
+        admin_requests=admin_requests,
+        smtp_configured=smtp_is_configured(),
+        admin_code_expiry_hours=app.config["ADMIN_CODE_EXPIRY_HOURS"],
     )
+
+
+@app.route("/admin-requests/<int:request_id>/approve", methods=["POST"])
+@login_required
+@admin_required
+def approve_admin_request(request_id):
+    request_row = get_admin_request_by_id(request_id)
+    if not request_row:
+        flash("That admin access request could not be found.", "error")
+        return redirect(url_for("admin_dashboard") + "#admin-access-requests")
+
+    if (request_row.get("STATUS") or "").lower() == "rejected":
+        flash("Rejected requests cannot be approved without a new request.", "error")
+        return redirect(url_for("admin_dashboard") + "#admin-access-requests")
+
+    try:
+        access_code, expires_at = create_admin_access_code(request_row)
+    except RuntimeError as error:
+        flash(str(error), "error")
+        return redirect(url_for("admin_dashboard") + "#admin-access-requests")
+
+    email_sent, delivery_message = send_admin_access_code_email(request_row["EMAIL"], access_code, expires_at)
+    log_activity("Admin request approved", f"Admin request #{request_id} approved for {request_row['EMAIL']}")
+    if email_sent:
+        flash(f"Request approved. {delivery_message}", "success")
+    else:
+        flash(f"Request approved. {delivery_message} Share code {access_code} manually from the dashboard.", "warning")
+    return redirect(url_for("admin_dashboard") + "#admin-access-requests")
+
+
+@app.route("/admin-requests/<int:request_id>/reject", methods=["POST"])
+@login_required
+@admin_required
+def reject_admin_request_route(request_id):
+    request_row = get_admin_request_by_id(request_id)
+    if not request_row:
+        flash("That admin access request could not be found.", "error")
+        return redirect(url_for("admin_dashboard") + "#admin-access-requests")
+
+    reject_admin_request(request_id)
+    log_activity("Admin request rejected", f"Admin request #{request_id} rejected for {request_row['EMAIL']}")
+    flash("The admin access request was rejected.", "success")
+    return redirect(url_for("admin_dashboard") + "#admin-access-requests")
 
 
 @app.route("/manager-dashboard")

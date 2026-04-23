@@ -166,6 +166,9 @@
                                     <input type="password" name="admin_access_code" placeholder=" " required>
                                     <span>Admin Access Code</span>
                                 </label>
+                                <div class="login-action-row">
+                                    <a class="btn btn-secondary magnetic" href="{{ url_for('request_admin_access') }}">Request Admin Access Code</a>
+                                </div>
                             {% endif %}
                             <button class="btn btn-primary login-submit magnetic" type="submit">
                                 {% if auth_view == 'admin' %}Create Admin Account{% else %}Create User Account{% endif %}

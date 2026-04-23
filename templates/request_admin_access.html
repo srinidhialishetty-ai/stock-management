@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Request Admin Access | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header chronicle-header">
+    <div class="chronicle-header-copy">
+        <span class="eyebrow">Help bot</span>
+        <h1>Request Admin Access</h1>
+        <p>Tell us why you need admin access. We'll review your request.</p>
+    </div>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <h3>Share your request</h3>
+        <p>Keep it simple. A little context helps the review move faster.</p>
+        <form method="post" enctype="multipart/form-data">
+            <label>Full Name
+                <input type="text" name="name" value="{{ request.form.get('name', '') }}" required>
+            </label>
+            <label>Email
+                <input type="email" name="email" value="{{ request.form.get('email', '') }}" required>
+            </label>
+            <label>Username (optional)
+                <input type="text" name="username" value="{{ request.form.get('username', '') }}">
+            </label>
+            <label>Business / Organization Name (optional)
+                <input type="text" name="business_name" value="{{ request.form.get('business_name', '') }}">
+            </label>
+            <label>Reason for requesting admin access
+                <textarea name="reason" rows="5" required>{{ request.form.get('reason', '') }}</textarea>
+            </label>
+            <label>Proof or supporting note (optional)
+                <textarea name="proof" rows="4">{{ request.form.get('proof', '') }}</textarea>
+            </label>
+            <label>Upload proof file (optional)
+                <input type="file" name="proof_file" accept=".png,.jpg,.jpeg,.pdf,.txt,.doc,.docx">
+            </label>
+            <div class="form-actions top-gap">
+                <button class="btn btn-primary" type="submit">Send Request</button>
+                <a class="btn btn-secondary" href="{{ url_for('login', access='admin', mode='register') }}">Back to Admin Signup</a>
+            </div>
+        </form>
+    </article>
+
+    <article class="feature-card">
+        <span class="eyebrow">How it works</span>
+        <h3>Simple review flow</h3>
+        <div class="mini-list">
+            <div class="mini-list-row"><span>1. You submit your details</span><strong>Request</strong></div>
+            <div class="mini-list-row"><span>2. An admin reviews and approves or rejects</span><strong>Review</strong></div>
+            <div class="mini-list-row"><span>3. Approved requests receive a single-use access code</span><strong>Code</strong></div>
+        </div>
+        <p class="top-gap">If email delivery is not configured, an admin can still share the generated code manually.</p>
+    </article>
+</section>
+{% endblock %}
