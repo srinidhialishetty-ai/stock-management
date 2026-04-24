@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from email.message import EmailMessage
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import urlparse
 from uuid import uuid4
 from zipfile import ZipFile
 
@@ -132,6 +133,10 @@ def login_required(view_func):
         if "role" not in session:
             flash("Please log in to continue.", "warning")
             return redirect(url_for("login"))
+        if not has_valid_session_identity():
+            session.clear()
+            flash("Please log in to continue.", "warning")
+            return redirect(url_for("login"))
         return view_func(*args, **kwargs)
 
     return wrapped
@@ -143,6 +148,10 @@ def admin_required(view_func):
     @wraps(view_func)
     def wrapped(*args, **kwargs):
         if "role" not in session:
+            flash("Please log in to continue.", "warning")
+            return redirect(url_for("login"))
+        if not has_valid_session_identity():
+            session.clear()
             flash("Please log in to continue.", "warning")
             return redirect(url_for("login"))
         if session.get("role") != "admin":
@@ -161,6 +170,10 @@ def admin_or_manager_required(view_func):
         if "role" not in session:
             flash("Please log in to continue.", "warning")
             return redirect(url_for("login"))
+        if not has_valid_session_identity():
+            session.clear()
+            flash("Please log in to continue.", "warning")
+            return redirect(url_for("login"))
         if session.get("role") not in {"admin", "manager"}:
             flash("Access denied for this area.", "error")
             return redirect_for_role(session.get("role"))
@@ -174,6 +187,8 @@ def owner_required(view_func):
 
     @wraps(view_func)
     def wrapped(*args, **kwargs):
+        if "role" in session and not has_valid_session_identity():
+            session.clear()
         if session.get("role") != "owner":
             if "role" not in session:
                 flash("Please log in to continue.", "warning")
@@ -1711,21 +1726,59 @@ def build_url_qr(url_value):
 
 
 def set_user_session(user_id, username, role):
+    session.clear()
     session["user_id"] = user_id
     session["username"] = username
     session["role"] = role
 
 
 def redirect_for_role(role):
-    if role == "owner":
+    normalized_role = str(role or "").strip().lower()
+    if normalized_role not in {"owner", "admin", "manager", "guest", "user"}:
+        session.clear()
+        return redirect(url_for("login"))
+    if normalized_role == "owner":
         return redirect(url_for("owner_dashboard"))
-    if role == "admin":
+    if normalized_role == "admin":
         return redirect(url_for("admin_dashboard"))
-    if role == "manager":
+    if normalized_role == "manager":
         return redirect(url_for("manager_dashboard"))
-    if role == "guest":
+    if normalized_role == "guest":
         return redirect(url_for("guest_dashboard"))
     return redirect(url_for("user_dashboard"))
+
+
+def normalize_catalog_token(token_value):
+    raw_value = str(token_value or "").strip()
+    if not raw_value:
+        return ""
+
+    cleaned_value = raw_value.rstrip("/")
+    parsed = urlparse(cleaned_value)
+    path = (parsed.path or "").rstrip("/")
+    if parsed.scheme or parsed.netloc:
+        match = re.search(r"/(?:catalog|view-data)/([A-Za-z0-9_-]+)$", path, re.IGNORECASE)
+        if match:
+            return match.group(1).strip().lower()
+
+    match = re.search(r"(?:^|/)(?:catalog|view-data)/([A-Za-z0-9_-]+)$", cleaned_value, re.IGNORECASE)
+    if match:
+        return match.group(1).strip().lower()
+
+    return cleaned_value.strip("/").lower()
+
+
+def has_valid_session_identity():
+    role = str(session.get("role") or "").strip().lower()
+    if role not in {"owner", "admin", "manager", "user", "guest"}:
+        return False
+    if role == "guest":
+        return True
+    username = str(session.get("username") or "").strip()
+    if not username:
+        return False
+    user = get_user_by_username(username)
+    return bool(user and str(user.get("ROLE") or "").strip().lower() == role)
 
 
 def get_recent_reports(limit=None):
@@ -1866,7 +1919,7 @@ def create_uploaded_report_batch(source_file_name, row_count):
         },
     )
     print("Created report_id:", report_id)
-    print("Generated token:", token)
+    print("[CATALOG] Generated uploaded report token:", token)
     print("Rows assigned to report:", row_count)
     return {
         "report_id": report_id,
@@ -1901,15 +1954,16 @@ def get_uploaded_report_by_id(report_id):
 
 
 def get_uploaded_report_by_token(token):
-    if not token:
+    normalized_token = normalize_catalog_token(token)
+    if not normalized_token:
         return None
     return fetch_one(
         """
         SELECT report_id, title, created_by_admin, token, source_file_name, status, created_at
         FROM uploaded_reports
-        WHERE token = :token
+        WHERE LOWER(token) = LOWER(:token)
         """,
-        {"token": token},
+        {"token": normalized_token},
     )
 
 
@@ -1971,7 +2025,9 @@ def resolve_catalog_report_record(catalog_record):
     if source_report_id and count_rows_for_report(source_report_id) > 0:
         return get_uploaded_report_by_id(source_report_id)
 
-    repaired_report = get_uploaded_report_by_id(catalog_record.get("TOKEN"))
+    repaired_report = get_uploaded_report_by_id(source_report_id)
+    if not repaired_report:
+        repaired_report = get_uploaded_report_by_token(catalog_record.get("TOKEN"))
     if not repaired_report:
         repaired_report = get_uploaded_report_by_source_file_name(extract_filename_from_catalog_title(catalog_record.get("TITLE")))
     if not repaired_report:
@@ -2006,6 +2062,7 @@ def create_or_refresh_shared_catalog(report_id=None, title=None):
         )
     token = uploaded_report["TOKEN"] if uploaded_report else uuid4().hex[:16]
     catalog_title = uploaded_report["TITLE"] if uploaded_report else (title or "Shared Inventory Catalog")
+    print("[CATALOG] Saving shared catalog token:", token, "for report:", report_id)
     existing = fetch_one(
         """
         SELECT share_id, token
@@ -2056,14 +2113,21 @@ def attach_qr_to_shared_catalog(catalog):
 
 
 def get_shared_catalog_by_token(token):
-    return fetch_one(
+    normalized_token = normalize_catalog_token(token)
+    print("[CATALOG] DB lookup token:", normalized_token or "<empty>")
+    if not normalized_token:
+        print("[CATALOG] DB lookup result: not found")
+        return None
+    catalog_record = fetch_one(
         """
         SELECT share_id, admin_user_id, title, token, source_report_id, qr_filename, status, created_at
         FROM shared_catalogs
-        WHERE token = :token AND status = :status
+        WHERE LOWER(token) = LOWER(:token) AND status = :status
         """,
-        {"token": token, "status": "active"},
+        {"token": normalized_token, "status": "active"},
     )
+    print("[CATALOG] DB lookup result:", "found" if catalog_record else "not found")
+    return catalog_record
 
 
 def get_latest_shared_catalog():
@@ -2099,9 +2163,10 @@ def build_analytics_link(report_id):
 
 
 def extract_token_from_input(value):
-    raw_value = str(value or "").strip()
-    match = re.search(r"/(?:catalog|view-data)/([A-Za-z0-9]+)", raw_value)
-    return match.group(1) if match else raw_value
+    token = normalize_catalog_token(value)
+    print("[CATALOG] Received token input:", str(value or "").strip())
+    print("[CATALOG] Normalized token input:", token or "<empty>")
+    return token
 
 
 def resolve_active_analytics_report():
@@ -2596,6 +2661,8 @@ def contact():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    if "role" in session and not has_valid_session_identity():
+        session.clear()
     auth_view = normalize_auth_view(request.args.get("access", "main"))
     auth_mode = normalize_auth_mode(request.args.get("mode", "login"), auth_view)
     if request.method == "POST":
@@ -2858,6 +2925,10 @@ def logout():
 @app.route("/dashboard")
 @login_required
 def dashboard():
+    if not has_valid_session_identity():
+        session.clear()
+        flash("Please log in to continue.", "warning")
+        return redirect(url_for("login"))
     return redirect_for_role(session.get("role"))
 
 
@@ -3583,9 +3654,11 @@ def view_data_lookup():
 @app.route("/view-data/<qr_token>")
 @login_required
 def view_data(qr_token):
-    if get_shared_catalog_by_token(qr_token):
-        return redirect(url_for("catalog", token=qr_token))
-    uploaded_report = get_uploaded_report_by_token(qr_token)
+    normalized_token = normalize_catalog_token(qr_token)
+    print("[CATALOG] /view-data token:", normalized_token or "<empty>")
+    if get_shared_catalog_by_token(normalized_token):
+        return redirect(url_for("catalog", token=normalized_token))
+    uploaded_report = get_uploaded_report_by_token(normalized_token)
     report = load_report_view(uploaded_report["REPORT_ID"]) if uploaded_report else None
     if not report:
         flash("This shared report link is invalid or has expired. Please ask the admin for a fresh QR code.", "error")
@@ -3607,8 +3680,9 @@ def view_data(qr_token):
 @app.route("/catalog/<token>")
 @login_required
 def catalog(token):
-    print("Catalog token received:", token)
-    catalog_record = get_shared_catalog_by_token(token)
+    normalized_token = normalize_catalog_token(token)
+    print("[CATALOG] /catalog token received:", normalized_token or "<empty>")
+    catalog_record = get_shared_catalog_by_token(normalized_token)
     if not catalog_record:
         flash("This shared catalog link is invalid or expired. Please ask the admin for a fresh link.", "error")
         return redirect_for_role(session.get("role"))
@@ -3638,7 +3712,7 @@ def catalog(token):
     viewed_reports = [item for item in viewed_reports if item.get("id") != catalog_record["TOKEN"]]
     viewed_reports.insert(0, summary)
     session["recent_viewed_reports"] = viewed_reports[:5]
-    session["last_catalog_token"] = token
+    session["last_catalog_token"] = normalized_token
     return render_template(
         "catalog.html",
         catalog=catalog_record,
