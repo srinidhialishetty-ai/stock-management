@@ -322,6 +322,26 @@ body.theme-night .btn-secondary {
     font-weight: 600;
 }
 
+.footer-link-owner {
+    font-size: 0.72rem;
+    opacity: 0.45;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+.footer-link-owner:hover,
+.footer-link-owner:focus-visible {
+    opacity: 0.9;
+    color: var(--primary);
+}
+
+body.theme-night .footer-link-owner:hover,
+body.theme-night .footer-link-owner:focus-visible {
+    color: var(--highlight);
+}
+
+
 .flash-success { background: rgba(111, 125, 92, 0.18); color: #46523a; }
 .flash-error { background: rgba(139, 48, 48, 0.12); color: #7e3232; }
 .flash-warning { background: rgba(192, 138, 93, 0.2); color: #82512c; }

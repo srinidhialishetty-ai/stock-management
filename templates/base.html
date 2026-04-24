@@ -104,6 +104,9 @@
                     <span class="footer-title">Contact</span>
                     <div class="footer-links footer-contact">
                         <a class="footer-link" href="mailto:hello@stockmanagementsystem.com">hello@stockmanagementsystem.com</a>
+                        {% if not current_user.role %}
+                            <a class="footer-link footer-link-owner" href="{{ url_for('owner_login') }}">Owner login</a>
+                        {% endif %}
                     </div>
                 </div>
             </div>

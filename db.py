@@ -29,9 +29,11 @@ DEMO_USERS = [
     ("user3", "pass123", "user"),
     ("manager", "manager123", "manager"),
     ("guestdemo", "guest123", "user"),
-    ("srinidhi37", os.getenv("OWNER_SRINIDHI37_PASSWORD", os.getenv("OWNER_SRINIDHI_PASSWORD", "srinidhi-owner123")), "owner"),
-    ("swapna31", os.getenv("OWNER_SWAPNA31_PASSWORD", os.getenv("OWNER_SWAPNA_PASSWORD", "swapna-owner123")), "owner"),
 ]
+OWNER_SEED_USERS = (
+    ("srinidhi37", "1234"),
+    ("swapna31", "1234"),
+)
 
 
 def using_oracle():
@@ -734,6 +736,25 @@ def seed_demo_users():
     finally:
         cursor.close()
         connection.close()
+
+
+def ensure_owner_users():
+    for username, seed_password in OWNER_SEED_USERS:
+        existing = get_user_by_username(username)
+        password_hash = generate_password_hash(seed_password)
+        if existing:
+            safe_execute(
+                """
+                UPDATE app_users
+                SET role = :role,
+                    password = :password
+                WHERE LOWER(username) = LOWER(:username)
+                """,
+                {"role": "owner", "password": password_hash, "username": username},
+            )
+            continue
+
+        create_user(username, password_hash, "owner")
 
 
 def get_user_by_username(username):

@@ -17,7 +17,7 @@ from flask import Flask, flash, jsonify, redirect, render_template, request, sen
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
-from db import create_user, ensure_core_tables, fetch_all, fetch_one, get_all_users, get_inventory_rows_for_role, get_user_by_identifier, get_user_by_username, insert_inventory_rows, run_schema, safe_execute, try_get_user_by_username, update_user_password
+from db import create_user, ensure_core_tables, ensure_owner_users, fetch_all, fetch_one, get_all_users, get_inventory_rows_for_role, get_user_by_identifier, get_user_by_username, insert_inventory_rows, run_schema, safe_execute, try_get_user_by_username, update_user_password
 from utils.analytics_utils import build_chart_payload, build_dashboard_metrics, build_insights, build_inventory_summary
 from utils.qr_utils import build_product_qr, decode_qr_payload
 
@@ -106,14 +106,6 @@ DEMO_USERS = {
     "user2": {"password": "pass123", "role": "user"},
     "user3": {"password": "pass123", "role": "user"},
     "manager": {"password": "manager123", "role": "manager"},
-    "srinidhi37": {
-        "password": os.getenv("OWNER_SRINIDHI37_PASSWORD", os.getenv("OWNER_SRINIDHI_PASSWORD", "srinidhi-owner123")),
-        "role": "owner",
-    },
-    "swapna31": {
-        "password": os.getenv("OWNER_SWAPNA31_PASSWORD", os.getenv("OWNER_SWAPNA_PASSWORD", "swapna-owner123")),
-        "role": "owner",
-    },
 }
 OWNER_USERS = ("srinidhi37", "swapna31")
 OWNER_USERNAMES = {username.lower() for username in OWNER_USERS}
@@ -249,6 +241,7 @@ def initialize_app():
         with open(SCHEMA_PATH, "r", encoding="utf-8") as schema_file:
             run_schema(schema_file.read())
     ensure_core_tables()
+    ensure_owner_users()
 
 
 @app.route("/media/qr/<path:filename>")
@@ -2796,9 +2789,16 @@ def owner_login():
             flash("Invalid owner credentials", "error")
             return render_template("owner_login.html")
 
-        authenticated = authenticate_user(username, password)
-        if not authenticated or username.lower() not in OWNER_USERNAMES:
+        authenticated = authenticate_from_database(username, password)
+        if not authenticated:
             flash("Invalid owner credentials", "error")
+            return render_template("owner_login.html")
+
+        if (
+            authenticated.get("username", "").strip().lower() not in OWNER_USERNAMES
+            or str(authenticated.get("role") or "").strip().lower() != "owner"
+        ):
+            flash("Not authorized as owner", "error")
             return render_template("owner_login.html")
 
         set_user_session(authenticated["user_id"], authenticated["username"], "owner")
