@@ -4,6 +4,7 @@ import re
 import secrets
 import smtplib
 import string
+import traceback
 import xml.etree.ElementTree as ET
 import base64
 from datetime import datetime, timedelta
@@ -257,6 +258,19 @@ def initialize_app():
             run_schema(schema_file.read())
     ensure_core_tables()
     ensure_owner_users()
+
+
+def log_route_exception(route_name, error):
+    app.logger.error("Route %s failed: %s", route_name, error)
+    app.logger.error(traceback.format_exc())
+
+
+def safe_route_value(route_name, label, callback, default):
+    try:
+        return callback()
+    except Exception as error:
+        log_route_exception(f"{route_name}.{label}", error)
+        return default
 
 
 @app.route("/media/qr/<path:filename>")
@@ -1244,11 +1258,6 @@ def make_upload_report(filename, status, message, rows, metadata=None, report_ba
 
 
 def build_dataframe_analytics(rows):
-    try:
-        import pandas as pd
-    except ImportError:
-        return build_lightweight_analytics(rows)
-
     if not rows:
         return {
             "available": True,
@@ -1261,48 +1270,54 @@ def build_dataframe_analytics(rows):
             "profit_total": 0,
         }
 
-    df = pd.DataFrame(rows)
-    df["PRODUCT_NAME"] = df["PRODUCT_NAME"].fillna("Unknown")
-    df["CATEGORY"] = df["CATEGORY"].fillna("Uncategorized")
-    df["PRICE"] = pd.to_numeric(df["PRICE"], errors="coerce").fillna(0)
-    df["QUANTITY"] = pd.to_numeric(df["QUANTITY"], errors="coerce").fillna(0).astype(int)
-    df["ENTRY_DATE"] = pd.to_datetime(df["ENTRY_DATE"].fillna(df.get("CREATED_AT")), errors="coerce")
-    df["MONTH"] = df["ENTRY_DATE"].dt.to_period("M").astype(str).fillna("No date")
-    df["INVENTORY_VALUE"] = df["PRICE"] * df["QUANTITY"]
-    df["ESTIMATED_COST"] = df["PRICE"] * 0.7
-    df["ESTIMATED_PROFIT"] = (df["PRICE"] - df["ESTIMATED_COST"]) * df["QUANTITY"]
+    try:
+        import pandas as pd
 
-    product_sales = (
-        df.groupby("PRODUCT_NAME", as_index=False)["QUANTITY"]
-        .sum()
-        .sort_values("QUANTITY", ascending=False)
-    )
-    fast_items = product_sales.head(5).to_dict("records")
-    slow_items = product_sales.sort_values("QUANTITY", ascending=True).head(5).to_dict("records")
-    low_stock = df[df["QUANTITY"] < 10].sort_values("QUANTITY").head(10).to_dict("records")
-    monthly_sales = df.groupby("MONTH", as_index=False)["QUANTITY"].sum().to_dict("records")
-    category_sales = df.groupby("CATEGORY", as_index=False)["QUANTITY"].sum().sort_values("QUANTITY", ascending=False)
+        df = pd.DataFrame(rows)
+        df["PRODUCT_NAME"] = df["PRODUCT_NAME"].fillna("Unknown")
+        df["CATEGORY"] = df["CATEGORY"].fillna("Uncategorized")
+        df["PRICE"] = pd.to_numeric(df["PRICE"], errors="coerce").fillna(0)
+        df["QUANTITY"] = pd.to_numeric(df["QUANTITY"], errors="coerce").fillna(0).astype(int)
+        df["ENTRY_DATE"] = pd.to_datetime(df["ENTRY_DATE"].fillna(df.get("CREATED_AT")), errors="coerce")
+        df["MONTH"] = df["ENTRY_DATE"].dt.to_period("M").astype(str).fillna("No date")
+        df["INVENTORY_VALUE"] = df["PRICE"] * df["QUANTITY"]
+        df["ESTIMATED_COST"] = df["PRICE"] * 0.7
+        df["ESTIMATED_PROFIT"] = (df["PRICE"] - df["ESTIMATED_COST"]) * df["QUANTITY"]
 
-    insights = []
-    if fast_items:
-        insights.append(f"{fast_items[0]['PRODUCT_NAME']} is a fast-moving item based on highest sales quantity.")
-    if slow_items:
-        insights.append(f"{slow_items[0]['PRODUCT_NAME']} is slow-moving and may need promotion or bundling.")
-    if not category_sales.empty:
-        insights.append(f"{category_sales.iloc[0]['CATEGORY']} has the highest sales volume.")
-    if low_stock:
-        insights.append(f"{low_stock[0]['PRODUCT_NAME']} has low stock and needs restocking.")
+        product_sales = (
+            df.groupby("PRODUCT_NAME", as_index=False)["QUANTITY"]
+            .sum()
+            .sort_values("QUANTITY", ascending=False)
+        )
+        fast_items = product_sales.head(5).to_dict("records")
+        slow_items = product_sales.sort_values("QUANTITY", ascending=True).head(5).to_dict("records")
+        low_stock = df[df["QUANTITY"] < 10].sort_values("QUANTITY").head(10).to_dict("records")
+        monthly_sales = df.groupby("MONTH", as_index=False)["QUANTITY"].sum().to_dict("records")
+        category_sales = df.groupby("CATEGORY", as_index=False)["QUANTITY"].sum().sort_values("QUANTITY", ascending=False)
 
-    return {
-        "available": True,
-        "charts": build_matplotlib_charts(df, product_sales, category_sales),
-        "insights": insights,
-        "fast_items": fast_items,
-        "slow_items": slow_items,
-        "low_stock": low_stock,
-        "monthly_sales": monthly_sales,
-        "profit_total": float(df["ESTIMATED_PROFIT"].sum()),
-    }
+        insights = []
+        if fast_items:
+            insights.append(f"{fast_items[0]['PRODUCT_NAME']} is a fast-moving item based on highest sales quantity.")
+        if slow_items:
+            insights.append(f"{slow_items[0]['PRODUCT_NAME']} is slow-moving and may need promotion or bundling.")
+        if not category_sales.empty:
+            insights.append(f"{category_sales.iloc[0]['CATEGORY']} has the highest sales volume.")
+        if low_stock:
+            insights.append(f"{low_stock[0]['PRODUCT_NAME']} has low stock and needs restocking.")
+
+        return {
+            "available": True,
+            "charts": build_matplotlib_charts(df, product_sales, category_sales),
+            "insights": insights,
+            "fast_items": fast_items,
+            "slow_items": slow_items,
+            "low_stock": low_stock,
+            "monthly_sales": monthly_sales,
+            "profit_total": float(df["ESTIMATED_PROFIT"].sum()),
+        }
+    except Exception as error:
+        log_route_exception("analytics.dataframe", error)
+        return build_lightweight_analytics(rows)
 
 
 def build_lightweight_analytics(rows):
@@ -1716,12 +1731,14 @@ def build_url_qr(url_value):
     try:
         import qrcode
 
+        QR_DIR.mkdir(parents=True, exist_ok=True)
         filename = f"product_url_{uuid4().hex[:8]}.png"
         path = QR_DIR / filename
         image = qrcode.make(url_value)
         image.save(path)
         return filename
-    except Exception:
+    except Exception as error:
+        log_route_exception("qr.generate", error)
         return None
 
 
@@ -2930,32 +2947,51 @@ def dashboard():
 @login_required
 @admin_required
 def admin_dashboard():
-    rows = get_active_rows()
-    metrics = build_dashboard_metrics(rows)
-    insights = build_insights(rows)
-    decision_analytics = build_dataframe_analytics(rows)
-    recent_rows = rows[:6]
-    users = get_all_users()[:6]
-    reports = get_recent_reports(6)
-    latest_share = get_latest_shared_catalog()
-    orders = build_order_views(8)
-    latest_uploaded_report = get_latest_uploaded_report()
-    return render_template(
-        "admin_dashboard.html",
-        metrics=metrics,
-        insights=insights,
-        decision_analytics=decision_analytics,
-        recent_rows=recent_rows,
-        users=users,
-        reports=reports,
-        total_reports=count_uploaded_reports(),
-        latest_share=latest_share,
-        shared_catalogs=get_shared_catalogs(5),
-        orders=orders,
-        latest_share_link=build_catalog_link(latest_share["TOKEN"]) if latest_share else "",
-        latest_uploaded_report=latest_uploaded_report,
-        recent_activity=get_recent_activity(8),
-    )
+    try:
+        rows = safe_route_value("admin_dashboard", "active_rows", get_active_rows, [])
+        latest_share = safe_route_value("admin_dashboard", "latest_share", get_latest_shared_catalog, None)
+        latest_uploaded_report = safe_route_value("admin_dashboard", "latest_uploaded_report", get_latest_uploaded_report, None)
+        return render_template(
+            "admin_dashboard.html",
+            metrics=safe_route_value("admin_dashboard", "metrics", lambda: build_dashboard_metrics(rows), build_dashboard_metrics([])),
+            insights=safe_route_value("admin_dashboard", "insights", lambda: build_insights(rows), build_insights([])),
+            decision_analytics=safe_route_value("admin_dashboard", "analytics", lambda: build_dataframe_analytics(rows), build_lightweight_analytics([])),
+            recent_rows=rows[:6],
+            users=safe_route_value("admin_dashboard", "users", lambda: get_all_users()[:6], []),
+            reports=safe_route_value("admin_dashboard", "reports", lambda: get_recent_reports(6), []),
+            total_reports=safe_route_value("admin_dashboard", "total_reports", count_uploaded_reports, 0),
+            latest_share=latest_share,
+            shared_catalogs=safe_route_value("admin_dashboard", "shared_catalogs", lambda: get_shared_catalogs(5), []),
+            orders=safe_route_value("admin_dashboard", "orders", lambda: build_order_views(8), []),
+            latest_share_link=build_catalog_link(latest_share["TOKEN"]) if latest_share and latest_share.get("TOKEN") else "",
+            latest_uploaded_report=latest_uploaded_report,
+            recent_activity=safe_route_value("admin_dashboard", "activity", lambda: get_recent_activity(8), []),
+        )
+    except Exception as error:
+        log_route_exception("admin_dashboard", error)
+        return render_template(
+            "admin_dashboard.html",
+            metrics=build_dashboard_metrics([]),
+            insights=build_insights([]),
+            decision_analytics=build_lightweight_analytics([]),
+            recent_rows=[],
+            users=[],
+            reports=[],
+            total_reports=0,
+            latest_share=None,
+            shared_catalogs=[],
+            orders=[],
+            latest_share_link="",
+            latest_uploaded_report=None,
+            recent_activity=[],
+        )
+
+
+@app.route("/reports")
+@login_required
+@admin_required
+def reports():
+    return redirect(url_for("admin_dashboard") + "#reports")
 
 
 @app.route("/owner-dashboard")
@@ -3384,64 +3420,91 @@ def upload_result():
 @login_required
 @admin_required
 def generate_report_qr(report_id):
-    report = load_report_view(report_id)
-    if not report:
-        flash("Report not found for QR generation.", "error")
-        return redirect(url_for("admin_dashboard"))
+    try:
+        report = load_report_view(report_id)
+        if not report:
+            flash("Report not found for QR generation. Upload inventory first.", "warning")
+            return redirect(url_for("admin_dashboard") + "#reports")
 
-    catalog = create_or_refresh_shared_catalog(report_id, f"Catalog from {report.get('filename', 'upload')}")
-    if not catalog:
-        flash("We could not create shared catalog access right now.", "error")
+        catalog = create_or_refresh_shared_catalog(report_id, f"Catalog from {report.get('filename', 'upload')}")
+        if not catalog or not catalog.get("TOKEN"):
+            flash("We could not create shared catalog access right now.", "error")
+            return redirect(url_for("report_view", report_id=report_id))
+
+        token = catalog["TOKEN"]
+        view_url = build_catalog_link(token)
+        qr_filename = build_url_qr(view_url)
+        if not qr_filename:
+            flash("Share link created. QR image generation failed, but the catalog token is ready.", "warning")
+            return redirect(url_for("report_view", report_id=report_id))
+
+        safe_execute(
+            "UPDATE shared_catalogs SET qr_filename = :qr_filename WHERE token = :token",
+            {"qr_filename": qr_filename, "token": token},
+        )
+        log_activity("QR generated", f"QR generated for report {report_id} with token {token}")
+        flash("Report QR code generated successfully.", "success")
         return redirect(url_for("report_view", report_id=report_id))
+    except Exception as error:
+        log_route_exception("generate_report_qr", error)
+        flash("Upload inventory first, then generate QR access for a report.", "warning")
+        return redirect(url_for("admin_dashboard") + "#share-access")
 
-    token = catalog["TOKEN"]
-    report["view_token"] = token
-    view_url = build_catalog_link(token)
-    qr_filename = build_url_qr(view_url)
-    if not qr_filename:
-        flash("We could not generate a QR code for this report right now.", "error")
-        return redirect(url_for("report_view", report_id=report_id))
 
-    safe_execute(
-        "UPDATE shared_catalogs SET qr_filename = :qr_filename WHERE token = :token",
-        {"qr_filename": qr_filename, "token": token},
-    )
-    report["qr_filename"] = qr_filename
-    log_activity("QR generated", f"QR generated for report {report_id} with token {token}")
-    flash("Report QR code generated successfully.", "success")
-    return redirect(url_for("report_view", report_id=report_id))
+@app.route("/generate-qr")
+@login_required
+@admin_required
+def generate_qr():
+    latest_report = safe_route_value("generate_qr", "latest_report", get_latest_uploaded_report, None)
+    if not latest_report:
+        flash("Upload inventory first before generating QR access.", "warning")
+        return redirect(url_for("admin_dashboard") + "#share-access")
+    return redirect(url_for("generate_report_qr", report_id=latest_report["REPORT_ID"]))
 
 
 @app.route("/generate-share/<report_id>")
 @login_required
 @admin_required
 def generate_share(report_id):
-    report = load_report_view(report_id)
-    title = f"Catalog from {report.get('filename', 'latest upload')}" if report else "Shared Inventory Catalog"
-    catalog = attach_qr_to_shared_catalog(create_or_refresh_shared_catalog(report_id, title))
-    if not catalog:
-        flash("We could not create a share link right now.", "error")
-        return redirect(url_for("admin_dashboard"))
-    log_activity("Share link generated", f"Share token {catalog['TOKEN']} generated for report {report_id}")
-    flash("Share link generated successfully.", "success")
-    return redirect(url_for("admin_dashboard") + "#share-access")
+    try:
+        report = load_report_view(report_id)
+        if not report:
+            flash("Report not found. Upload inventory first.", "warning")
+            return redirect(url_for("admin_dashboard") + "#reports")
+        title = f"Catalog from {report.get('filename', 'latest upload')}"
+        catalog = attach_qr_to_shared_catalog(create_or_refresh_shared_catalog(report_id, title))
+        if not catalog or not catalog.get("TOKEN"):
+            flash("We could not create a share link right now.", "error")
+            return redirect(url_for("admin_dashboard") + "#reports")
+        log_activity("Share link generated", f"Share token {catalog['TOKEN']} generated for report {report_id}")
+        flash("Share link generated successfully.", "success")
+        return redirect(url_for("admin_dashboard") + "#share-access")
+    except Exception as error:
+        log_route_exception("generate_share", error)
+        flash("Upload inventory first before generating a share link.", "warning")
+        return redirect(url_for("admin_dashboard") + "#reports")
 
 
 @app.route("/generate-catalog-share")
 @login_required
 @admin_required
 def generate_catalog_share():
-    latest_report = get_latest_uploaded_report()
-    if not latest_report:
-        flash("Upload a dataset first so the shared catalog is tied to a specific report.", "warning")
-        return redirect(url_for("admin_dashboard"))
-    catalog = attach_qr_to_shared_catalog(create_or_refresh_shared_catalog(latest_report["REPORT_ID"], latest_report["TITLE"]))
-    if not catalog:
-        flash("We could not create a share link right now.", "error")
-        return redirect(url_for("admin_dashboard"))
-    log_activity("Share link generated", f"Latest report {latest_report['REPORT_ID']} shared as token {catalog['TOKEN']}")
-    flash("Share link generated for the latest uploaded dataset.", "success")
-    return redirect(url_for("admin_dashboard") + "#share-access")
+    try:
+        latest_report = get_latest_uploaded_report()
+        if not latest_report:
+            flash("Upload inventory first before generating QR access.", "warning")
+            return redirect(url_for("admin_dashboard") + "#share-access")
+        catalog = attach_qr_to_shared_catalog(create_or_refresh_shared_catalog(latest_report["REPORT_ID"], latest_report["TITLE"]))
+        if not catalog or not catalog.get("TOKEN"):
+            flash("We could not create a share link right now.", "error")
+            return redirect(url_for("admin_dashboard") + "#share-access")
+        log_activity("Share link generated", f"Latest report {latest_report['REPORT_ID']} shared as token {catalog['TOKEN']}")
+        flash("Share link generated for the latest uploaded dataset.", "success")
+        return redirect(url_for("admin_dashboard") + "#share-access")
+    except Exception as error:
+        log_route_exception("generate_catalog_share", error)
+        flash("Upload inventory first before generating QR access.", "warning")
+        return redirect(url_for("admin_dashboard") + "#share-access")
 
 
 @app.route("/upload/map", methods=["GET", "POST"])
@@ -3628,11 +3691,16 @@ def analytics():
 @login_required
 @admin_required
 def report_view(report_id):
-    report = load_report_view(report_id)
-    if not report or report.get("id") != report_id:
-        flash("That report is not available in this session.", "warning")
-        return redirect(url_for("admin_dashboard"))
-    return render_template("upload_result.html", report=report, read_only=True)
+    try:
+        report = load_report_view(report_id)
+        if not report or report.get("id") != report_id:
+            flash("That report is not available yet. Upload inventory first.", "warning")
+            return redirect(url_for("admin_dashboard") + "#reports")
+        return render_template("upload_result.html", report=report, read_only=True)
+    except Exception as error:
+        log_route_exception("report_view", error)
+        flash("That report could not be loaded right now.", "warning")
+        return redirect(url_for("admin_dashboard") + "#reports")
 
 
 @app.route("/view-data", methods=["POST"])
@@ -3953,7 +4021,8 @@ def page_not_found(_error):
 
 
 @app.errorhandler(500)
-def internal_error(_error):
+def internal_error(error):
+    log_route_exception(request.endpoint or request.path, error)
     return render_template("500.html"), 500
 
 
