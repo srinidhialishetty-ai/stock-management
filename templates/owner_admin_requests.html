@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Owner Review | Admin Requests{% endblock %}
+{% block content %}
+<section class="page-header chronicle-header">
+    <div class="chronicle-header-copy">
+        <span class="eyebrow">Owner portal</span>
+        <h1>Admin Access Requests</h1>
+        <p>Review submitted admin access requests, proofs, and approval history.</p>
+    </div>
+</section>
+
+<section class="feature-card">
+    <div class="section-row">
+        <div class="form-actions">
+            <a class="btn {% if active_status == 'all' %}btn-primary{% else %}btn-secondary{% endif %}" href="{{ url_for('owner_admin_requests') }}">All</a>
+            <a class="btn {% if active_status == 'pending' %}btn-primary{% else %}btn-secondary{% endif %}" href="{{ url_for('owner_admin_requests', status='pending') }}">Pending</a>
+            <a class="btn {% if active_status == 'approved' %}btn-primary{% else %}btn-secondary{% endif %}" href="{{ url_for('owner_admin_requests', status='approved') }}">Approved</a>
+            <a class="btn {% if active_status == 'rejected' %}btn-primary{% else %}btn-secondary{% endif %}" href="{{ url_for('owner_admin_requests', status='rejected') }}">Rejected</a>
+        </div>
+    </div>
+    <div class="table-shell">
+        <table>
+            <thead>
+                <tr><th>Name</th><th>Email</th><th>Username</th><th>Business</th><th>Status</th><th>Submitted</th><th>Review</th></tr>
+            </thead>
+            <tbody>
+                {% for admin_request in admin_requests %}
+                <tr>
+                    <td>{{ admin_request.NAME }}</td>
+                    <td>{{ admin_request.EMAIL }}</td>
+                    <td>{{ admin_request.USERNAME or '-' }}</td>
+                    <td>{{ admin_request.BUSINESS_NAME or '-' }}</td>
+                    <td>{{ admin_request.STATUS|upper }}</td>
+                    <td>{{ admin_request.CREATED_AT }}</td>
+                    <td><a href="{{ url_for('owner_admin_request_detail', request_id=admin_request.ID) }}">View Details</a></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7">No admin access requests found for this filter.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

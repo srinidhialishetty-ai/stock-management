@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Owner Dashboard | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header chronicle-header">
+    <div class="chronicle-header-copy">
+        <span class="eyebrow">Owner portal</span>
+        <h1>Review protected admin onboarding.</h1>
+        <p>Welcome, {{ current_user.username }}. This portal is reserved for owner-level review of admin access requests.</p>
+    </div>
+</section>
+
+<section class="dashboard-grid">
+    <article class="dashboard-card admin-card"><span>Total requests</span><h2>{{ total_requests }}</h2><p>All submitted admin access requests.</p></article>
+    <article class="dashboard-card"><span>Pending</span><h2>{{ pending_requests }}</h2><p>Requests waiting for owner review.</p></article>
+    <article class="dashboard-card"><span>Approved</span><h2>{{ approved_requests }}</h2><p>Requests cleared to continue onboarding.</p></article>
+    <article class="dashboard-card"><span>Rejected</span><h2>{{ rejected_requests }}</h2><p>Requests declined by owners.</p></article>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <div class="section-row">
+            <div>
+                <span class="eyebrow">Review queue</span>
+                <h3>Recent admin requests</h3>
+            </div>
+            <a class="btn btn-primary" href="{{ url_for('owner_admin_requests') }}">Open Request Review</a>
+        </div>
+        <div class="mini-list">
+            {% for admin_request in recent_requests %}
+                <div class="mini-list-row"><span>{{ admin_request.NAME }}</span><strong>{{ admin_request.STATUS|upper }}</strong></div>
+            {% else %}
+                <div class="mini-list-row"><span>No requests submitted yet</span><strong>-</strong></div>
+            {% endfor %}
+        </div>
+    </article>
+
+    <article class="feature-card">
+        <h3>Owner access rules</h3>
+        <p>Only owner accounts can view proofs, approve requests, reject requests, and release admin onboarding access.</p>
+    </article>
+</section>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Owner Login | Stock Management with Inventory Analysis{% endblock %}
+{% block content %}
+<section class="page-header chronicle-header">
+    <div class="chronicle-header-copy">
+        <span class="eyebrow">Owner portal</span>
+        <h1>Owner Login</h1>
+        <p>Sign in with an approved owner account to review admin access requests.</p>
+    </div>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <h3>Secure owner access</h3>
+        <form method="post">
+            <label>Username
+                <input type="text" name="username" autocomplete="username" required>
+            </label>
+            <label>Password
+                <input type="password" name="password" autocomplete="current-password" required>
+            </label>
+            <div class="form-actions top-gap">
+                <button class="btn btn-primary" type="submit">Enter Owner Portal</button>
+                <a class="btn btn-secondary" href="{{ url_for('login') }}">Back to Main Login</a>
+            </div>
+        </form>
+    </article>
+    <article class="feature-card">
+        <h3>Restricted access</h3>
+        <p>Only approved owner accounts can open this portal. Public owner signup is not available.</p>
+    </article>
+</section>
+{% endblock %}

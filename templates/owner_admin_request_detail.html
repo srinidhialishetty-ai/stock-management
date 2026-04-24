@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Owner Review | Request Details{% endblock %}
+{% block content %}
+<section class="page-header chronicle-header">
+    <div class="chronicle-header-copy">
+        <span class="eyebrow">Owner portal</span>
+        <h1>{{ admin_request.NAME }}</h1>
+        <p>Full request review, proof access, decision history, and onboarding release controls.</p>
+    </div>
+</section>
+
+<section class="grid-two">
+    <article class="feature-card">
+        <div class="section-row">
+            <div>
+                <span class="eyebrow">Request details</span>
+                <h3>Applicant information</h3>
+            </div>
+            <span class="role-badge role-{{ admin_request.STATUS }}">{{ admin_request.STATUS|upper }}</span>
+        </div>
+        <div class="mini-list">
+            <div class="mini-list-row"><span>Email</span><strong>{{ admin_request.EMAIL }}</strong></div>
+            <div class="mini-list-row"><span>Username</span><strong>{{ admin_request.USERNAME or '-' }}</strong></div>
+            <div class="mini-list-row"><span>Business</span><strong>{{ admin_request.BUSINESS_NAME or '-' }}</strong></div>
+            <div class="mini-list-row"><span>Submitted</span><strong>{{ admin_request.CREATED_AT }}</strong></div>
+            <div class="mini-list-row"><span>Reviewed by</span><strong>{{ admin_request.REVIEWER_USERNAME or '-' }}</strong></div>
+            <div class="mini-list-row"><span>Reviewed at</span><strong>{{ admin_request.REVIEWED_AT or '-' }}</strong></div>
+        </div>
+        <p class="top-gap"><strong>Reason:</strong> {{ admin_request.REASON }}</p>
+        {% if admin_request.PROOF %}
+            <p><strong>Proof note:</strong> {{ admin_request.PROOF }}</p>
+        {% endif %}
+        {% if admin_request.PROOF_FILE_PATH %}
+            <p><a href="{{ url_for('admin_request_proof_media', filename=admin_request.PROOF_FILE_PATH) }}">Open submitted proof file</a></p>
+        {% endif %}
+        {% if latest_code %}
+            <p><strong>Latest access code:</strong> <code>{{ latest_code.CODE }}</code></p>
+            <p><strong>Code expiry:</strong> {{ latest_code.EXPIRES_AT or '-' }}</p>
+        {% endif %}
+        <div class="form-actions top-gap">
+            {% if admin_request.STATUS != 'rejected' %}
+                <form method="post" action="{{ url_for('approve_admin_request', request_id=admin_request.ID) }}">
+                    <button class="btn btn-primary" type="submit">Approve Request</button>
+                </form>
+            {% endif %}
+            {% if admin_request.STATUS != 'rejected' %}
+                <form method="post" action="{{ url_for('reject_admin_request_route', request_id=admin_request.ID) }}">
+                    <button class="btn btn-secondary" type="submit">Reject Request</button>
+                </form>
+            {% endif %}
+        </div>
+    </article>
+
+    <article class="feature-card">
+        <h3>Audit trail</h3>
+        <div class="mini-list">
+            {% for entry in audit_entries %}
+                <div class="mini-list-row"><span>{{ entry.MESSAGE }}</span><strong>{{ entry.CREATED_AT }}</strong></div>
+            {% else %}
+                <div class="mini-list-row"><span>No audit entries yet</span><strong>-</strong></div>
+            {% endfor %}
+        </div>
+        <p class="top-gap">Approved requests can continue through the existing admin signup flow using the generated access code. {% if smtp_configured %}Status and onboarding details are also emailed when possible.{% else %}If email is not configured, the in-app request update still appears on the request page.{% endif %}</p>
+        <a class="btn btn-secondary top-gap" href="{{ url_for('owner_admin_requests') }}">Back to Request List</a>
+    </article>
+</section>
+{% endblock %}

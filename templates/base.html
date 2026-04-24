@@ -23,7 +23,10 @@
             </a>
             <nav class="nav-links">
                 <a class="nav-link" href="{{ url_for('index') }}">Home</a>
-                {% if current_user.role == 'admin' %}
+                {% if current_user.role == 'owner' %}
+                    <a class="nav-link" href="{{ url_for('owner_dashboard') }}">Owner Portal</a>
+                    <a class="nav-link" href="{{ url_for('owner_admin_requests') }}">Admin Requests</a>
+                {% elif current_user.role == 'admin' %}
                     <a class="nav-link" href="{{ url_for('admin_dashboard') }}">Dashboard</a>
                     <a class="nav-link" href="{{ url_for('upload') }}">Upload Data</a>
                     <a class="nav-link" href="{{ url_for('analytics') }}">Analytics</a>
@@ -91,7 +94,7 @@
                     <span class="footer-title">Quick Links</span>
                     <div class="footer-links">
                         <a class="footer-link" href="{{ url_for('index') }}">Home</a>
-                        <a class="footer-link" href="{% if current_user.role == 'admin' %}{{ url_for('admin_dashboard') }}{% elif current_user.role == 'manager' %}{{ url_for('manager_dashboard') }}{% elif current_user.role == 'user' %}{{ url_for('user_dashboard') }}{% elif current_user.role == 'guest' %}{{ url_for('guest_dashboard') }}{% else %}{{ url_for('login') }}{% endif %}">Dashboard</a>
+                        <a class="footer-link" href="{% if current_user.role == 'owner' %}{{ url_for('owner_dashboard') }}{% elif current_user.role == 'admin' %}{{ url_for('admin_dashboard') }}{% elif current_user.role == 'manager' %}{{ url_for('manager_dashboard') }}{% elif current_user.role == 'user' %}{{ url_for('user_dashboard') }}{% elif current_user.role == 'guest' %}{{ url_for('guest_dashboard') }}{% else %}{{ url_for('login') }}{% endif %}">Dashboard</a>
                         <a class="footer-link" href="{{ url_for('upload') }}">Upload</a>
                         <a class="footer-link" href="{{ url_for('analytics') }}">Analytics</a>
                         <a class="footer-link" href="{{ url_for('contact') }}">Contact</a>

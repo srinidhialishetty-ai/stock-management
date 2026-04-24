@@ -14,6 +14,7 @@
         <h3>Share your request</h3>
         <p>Keep it simple. A little context helps the review move faster.</p>
         <form method="post" enctype="multipart/form-data">
+            <input type="hidden" name="action" value="submit">
             <label>Full Name
                 <input type="text" name="name" value="{{ request.form.get('name', '') }}" required>
             </label>
@@ -47,10 +48,31 @@
         <h3>Simple review flow</h3>
         <div class="mini-list">
             <div class="mini-list-row"><span>1. You submit your details</span><strong>Request</strong></div>
-            <div class="mini-list-row"><span>2. An admin reviews and approves or rejects</span><strong>Review</strong></div>
+            <div class="mini-list-row"><span>2. An owner reviews and approves or rejects</span><strong>Review</strong></div>
             <div class="mini-list-row"><span>3. Approved requests receive a single-use access code</span><strong>Code</strong></div>
         </div>
-        <p class="top-gap">If email delivery is not configured, an admin can still share the generated code manually.</p>
+        <p class="top-gap">If email delivery is not configured, the request update still appears here when you check your status.</p>
+        <hr class="top-gap">
+        <h3>Check request update</h3>
+        <form method="post">
+            <input type="hidden" name="action" value="check-status">
+            <label>Email
+                <input type="email" name="lookup_email" value="{{ lookup_email|default('') }}">
+            </label>
+            <label>Username (optional)
+                <input type="text" name="lookup_username" value="{{ lookup_username|default('') }}">
+            </label>
+            <div class="form-actions top-gap">
+                <button class="btn btn-secondary" type="submit">Check Status</button>
+            </div>
+        </form>
+        {% if request_updates %}
+            <div class="mini-list top-gap">
+                {% for update in request_updates %}
+                    <div class="mini-list-row"><span>{{ update.MESSAGE }}</span><strong>{{ update.CREATED_AT }}</strong></div>
+                {% endfor %}
+            </div>
+        {% endif %}
     </article>
 </section>
 {% endblock %}

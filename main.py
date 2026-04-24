@@ -106,7 +106,17 @@ DEMO_USERS = {
     "user2": {"password": "pass123", "role": "user"},
     "user3": {"password": "pass123", "role": "user"},
     "manager": {"password": "manager123", "role": "manager"},
+    "srinidhi37": {
+        "password": os.getenv("OWNER_SRINIDHI37_PASSWORD", os.getenv("OWNER_SRINIDHI_PASSWORD", "srinidhi-owner123")),
+        "role": "owner",
+    },
+    "swapna31": {
+        "password": os.getenv("OWNER_SWAPNA31_PASSWORD", os.getenv("OWNER_SWAPNA_PASSWORD", "swapna-owner123")),
+        "role": "owner",
+    },
 }
+OWNER_USERS = ("srinidhi37", "swapna31")
+OWNER_USERNAMES = {username.lower() for username in OWNER_USERS}
 IS_PRODUCTION = os.getenv("RENDER") == "true" or os.getenv("FLASK_ENV", "").lower() == "production"
 
 app = Flask(__name__)
@@ -167,6 +177,30 @@ def admin_or_manager_required(view_func):
     return wrapped
 
 
+def owner_required(view_func):
+    from functools import wraps
+
+    @wraps(view_func)
+    def wrapped(*args, **kwargs):
+        if session.get("role") != "owner":
+            if "role" not in session:
+                flash("Please log in to continue.", "warning")
+                return redirect(url_for("owner_login"))
+            flash("Access denied for the owner portal.", "error")
+            return redirect_for_role(session.get("role"))
+        return view_func(*args, **kwargs)
+
+    return wrapped
+
+
+def is_allowed_owner_account(username, role):
+    return str(role or "").strip().lower() == "owner" and str(username or "").strip().lower() in OWNER_USERNAMES
+
+
+def is_owner_session():
+    return session.get("role") == "owner"
+
+
 @app.context_processor
 def inject_globals():
     cart = cart_summary() if session.get("role") == "user" else {"count": 0, "subtotal": 0, "items": []}
@@ -178,6 +212,30 @@ def inject_globals():
         },
         "cart_state": cart,
     }
+
+
+@app.before_request
+def protect_hidden_owner_routes():
+    owner_path = request.path == "/owner-login" or request.path.startswith("/owner/")
+    proof_path = request.path.startswith("/media/admin-request-proofs/")
+    if not owner_path and not proof_path:
+        return None
+
+    if request.path == "/owner-login":
+        if is_owner_session():
+            return redirect(url_for("owner_dashboard"))
+        if "role" in session and not is_owner_session():
+            flash("Access denied for the owner portal.", "error")
+            return redirect_for_role(session.get("role"))
+        return None
+
+    if session.get("role") != "owner":
+        if "role" not in session:
+            flash("Please log in to continue.", "warning")
+            return redirect(url_for("owner_login"))
+        flash("Access denied for the owner portal.", "error")
+        return redirect_for_role(session.get("role"))
+    return None
 
 
 def initialize_app():
@@ -204,8 +262,7 @@ def upload_media(filename):
 
 
 @app.route("/media/admin-request-proofs/<path:filename>")
-@login_required
-@admin_required
+@owner_required
 def admin_request_proof_media(filename):
     return send_from_directory(ADMIN_PROOF_DIR, filename)
 
@@ -277,6 +334,50 @@ def send_admin_access_code_email(recipient_email, access_code, expires_at):
         return True, "Access code sent by email."
     except Exception:
         return False, "The code was generated, but email delivery failed."
+
+
+def send_admin_request_status_email(recipient_email, approved, access_code="", expires_at=None):
+    if not smtp_is_configured():
+        return False, "Email delivery is not configured."
+
+    message = EmailMessage()
+    message["Subject"] = "Your admin access request update"
+    message["From"] = os.getenv("SMTP_FROM_EMAIL")
+    message["To"] = recipient_email
+    if approved:
+        expiry_label = expires_at.strftime("%Y-%m-%d %H:%M UTC") if expires_at else "No expiry"
+        body_lines = [
+            "Your admin access request has been approved.",
+            "You may continue your admin onboarding.",
+        ]
+        if access_code:
+            body_lines.append(f"Admin access code: {access_code}")
+            body_lines.append(f"Code expires: {expiry_label}")
+    else:
+        body_lines = [
+            "Your admin access request was not approved.",
+            "If you need to try again, please submit a new request with more detail.",
+        ]
+    message.set_content("\n".join(body_lines))
+
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_username = os.getenv("SMTP_USERNAME", "")
+    smtp_password = os.getenv("SMTP_PASSWORD", "")
+    use_tls = os.getenv("SMTP_USE_TLS", "true").lower() in {"1", "true", "yes"}
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as server:
+            server.ehlo()
+            if use_tls:
+                server.starttls()
+                server.ehlo()
+            if smtp_username:
+                server.login(smtp_username, smtp_password)
+            server.send_message(message)
+        return True, "Status email sent."
+    except Exception:
+        return False, "Status email could not be delivered."
 
 
 def generate_password_reset_code():
@@ -411,8 +512,58 @@ def mark_password_reset_token_used(token_id):
     )
 
 
-def get_admin_requests(limit=None):
+def create_admin_request_notification(request_row, message):
+    safe_execute(
+        """
+        INSERT INTO admin_request_notifications (request_id, email, username, message)
+        VALUES (:request_id, :email, :username, :message)
+        """,
+        {
+            "request_id": request_row["ID"],
+            "email": request_row.get("EMAIL"),
+            "username": request_row.get("USERNAME"),
+            "message": message,
+        },
+    )
+
+
+def get_admin_request_notifications(email="", username=""):
+    filters = []
+    params = {}
+    if email:
+        filters.append("LOWER(email) = LOWER(:email)")
+        params["email"] = email
+    if username:
+        filters.append("LOWER(username) = LOWER(:username)")
+        params["username"] = username
+    where_clause = f"WHERE {' OR '.join(filters)}" if filters else ""
+    return fetch_all(
+        f"""
+        SELECT id, request_id, email, username, message, created_at
+        FROM admin_request_notifications
+        {where_clause}
+        ORDER BY created_at DESC, id DESC
+        """,
+        params,
+    )
+
+
+def get_admin_request_audit(request_id):
+    return fetch_all(
+        """
+        SELECT id, request_id, email, username, message, created_at
+        FROM admin_request_notifications
+        WHERE request_id = :request_id
+        ORDER BY created_at DESC, id DESC
+        """,
+        {"request_id": request_id},
+    )
+
+
+def get_admin_requests(limit=None, status=None):
     limit_clause = f"FETCH FIRST {int(limit)} ROWS ONLY" if limit else ""
+    status_clause = "WHERE r.status = :status" if status and status in {"pending", "approved", "rejected"} else ""
+    params = {"status": status} if status_clause else None
     return fetch_all(
         f"""
         SELECT
@@ -428,6 +579,7 @@ def get_admin_requests(limit=None):
             r.reviewed_by,
             r.reviewed_at,
             r.created_at,
+            reviewer.username AS reviewer_username,
             (
                 SELECT c.code
                 FROM admin_access_codes c
@@ -443,17 +595,22 @@ def get_admin_requests(limit=None):
                 FETCH FIRST 1 ROWS ONLY
             ) AS latest_code_expires_at
         FROM admin_requests r
+        LEFT JOIN app_users reviewer ON reviewer.user_id = r.reviewed_by
+        {status_clause}
         ORDER BY r.created_at DESC, r.id DESC
         {limit_clause}
-        """
+        """,
+        params,
     )
 
 
 def get_admin_request_by_id(request_id):
     return fetch_one(
         """
-        SELECT id, name, email, username, reason, business_name, proof, proof_file_path, status, reviewed_by, reviewed_at, created_at
-        FROM admin_requests
+        SELECT r.id, r.name, r.email, r.username, r.reason, r.business_name, r.proof, r.proof_file_path, r.status, r.reviewed_by, r.reviewed_at, r.created_at,
+               reviewer.username AS reviewer_username
+        FROM admin_requests r
+        LEFT JOIN app_users reviewer ON reviewer.user_id = r.reviewed_by
         WHERE id = :request_id
         """,
         {"request_id": request_id},
@@ -1567,6 +1724,8 @@ def set_user_session(user_id, username, role):
 
 
 def redirect_for_role(role):
+    if role == "owner":
+        return redirect(url_for("owner_dashboard"))
     if role == "admin":
         return redirect(url_for("admin_dashboard"))
     if role == "manager":
@@ -2457,6 +2616,9 @@ def login():
         if not authenticated:
             flash("Invalid username or password", "error")
             return render_template("login.html", auth_view=auth_view, auth_mode=auth_mode)
+        if is_allowed_owner_account(authenticated.get("username"), authenticated.get("role")):
+            flash("Owner accounts must use the protected owner login.", "error")
+            return render_template("login.html", auth_view=auth_view, auth_mode=auth_mode)
 
         set_user_session(authenticated["user_id"], authenticated["username"], authenticated["role"])
         session.pop("guest_inventory_rows", None)
@@ -2520,6 +2682,24 @@ def register():
 @app.route("/request-admin-access", methods=["GET", "POST"])
 def request_admin_access():
     if request.method == "POST":
+        action = request.form.get("action", "submit")
+        if action == "check-status":
+            lookup_email = request.form.get("lookup_email", "").strip()
+            lookup_username = request.form.get("lookup_username", "").strip()
+            notifications = []
+            if not lookup_email and not lookup_username:
+                flash("Enter your email or username to check request updates.", "error")
+            else:
+                notifications = get_admin_request_notifications(lookup_email, lookup_username)
+                if not notifications:
+                    flash("No request updates are available yet.", "warning")
+            return render_template(
+                "request_admin_access.html",
+                request_updates=notifications,
+                lookup_email=lookup_email,
+                lookup_username=lookup_username,
+            )
+
         name = request.form.get("name", "").strip()
         email = request.form.get("email", "").strip()
         username = request.form.get("username", "").strip()
@@ -2561,7 +2741,15 @@ def request_admin_access():
         flash("Your admin access request was submitted. We’ll review it and share the code after approval.", "success")
         return redirect(url_for("login", access="admin", mode="register"))
 
-    return render_template("request_admin_access.html")
+    lookup_email = request.args.get("email", "").strip()
+    lookup_username = request.args.get("username", "").strip()
+    notifications = get_admin_request_notifications(lookup_email, lookup_username) if (lookup_email or lookup_username) else []
+    return render_template(
+        "request_admin_access.html",
+        request_updates=notifications,
+        lookup_email=lookup_email,
+        lookup_username=lookup_username,
+    )
 
 
 @app.route("/forgot-password", methods=["GET", "POST"])
@@ -2597,6 +2785,27 @@ def forgot_password():
         return redirect(url_for("reset_password"))
 
     return render_template("forgot_password.html")
+
+
+@app.route("/owner-login", methods=["GET", "POST"])
+def owner_login():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+        if not username or not password:
+            flash("Invalid owner credentials", "error")
+            return render_template("owner_login.html")
+
+        authenticated = authenticate_user(username, password)
+        if not authenticated or username.lower() not in OWNER_USERNAMES:
+            flash("Invalid owner credentials", "error")
+            return render_template("owner_login.html")
+
+        set_user_session(authenticated["user_id"], authenticated["username"], "owner")
+        flash("Owner access granted.", "success")
+        return redirect(url_for("owner_dashboard"))
+
+    return render_template("owner_login.html")
 
 
 @app.route("/reset-password", methods=["GET", "POST"])
@@ -2666,7 +2875,6 @@ def admin_dashboard():
     latest_share = get_latest_shared_catalog()
     orders = build_order_views(8)
     latest_uploaded_report = get_latest_uploaded_report()
-    admin_requests = get_admin_requests()
     return render_template(
         "admin_dashboard.html",
         metrics=metrics,
@@ -2682,53 +2890,107 @@ def admin_dashboard():
         latest_share_link=build_catalog_link(latest_share["TOKEN"]) if latest_share else "",
         latest_uploaded_report=latest_uploaded_report,
         recent_activity=get_recent_activity(8),
-        admin_requests=admin_requests,
-        smtp_configured=smtp_is_configured(),
-        admin_code_expiry_hours=app.config["ADMIN_CODE_EXPIRY_HOURS"],
     )
 
 
-@app.route("/admin-requests/<int:request_id>/approve", methods=["POST"])
-@login_required
-@admin_required
+@app.route("/owner-dashboard")
+@owner_required
+def owner_dashboard():
+    all_requests = get_admin_requests()
+    pending_requests = [row for row in all_requests if row.get("STATUS") == "pending"]
+    approved_requests = [row for row in all_requests if row.get("STATUS") == "approved"]
+    rejected_requests = [row for row in all_requests if row.get("STATUS") == "rejected"]
+    return render_template(
+        "owner_dashboard.html",
+        total_requests=len(all_requests),
+        pending_requests=len(pending_requests),
+        approved_requests=len(approved_requests),
+        rejected_requests=len(rejected_requests),
+        recent_requests=all_requests[:8],
+    )
+
+
+@app.route("/owner/admin-requests")
+@owner_required
+def owner_admin_requests():
+    status = request.args.get("status", "all").strip().lower()
+    status_filter = status if status in {"pending", "approved", "rejected"} else None
+    return render_template(
+        "owner_admin_requests.html",
+        admin_requests=get_admin_requests(status=status_filter),
+        active_status=status if status in {"pending", "approved", "rejected"} else "all",
+    )
+
+
+@app.route("/owner/admin-requests/<int:request_id>")
+@owner_required
+def owner_admin_request_detail(request_id):
+    request_row = get_admin_request_by_id(request_id)
+    if not request_row:
+        flash("That admin access request could not be found.", "error")
+        return redirect(url_for("owner_admin_requests"))
+    return render_template(
+        "owner_admin_request_detail.html",
+        admin_request=request_row,
+        audit_entries=get_admin_request_audit(request_id),
+        smtp_configured=smtp_is_configured(),
+        admin_code_expiry_hours=app.config["ADMIN_CODE_EXPIRY_HOURS"],
+        latest_code=fetch_one(
+            """
+            SELECT code, expires_at, created_at, status, used_at
+            FROM admin_access_codes
+            WHERE request_id = :request_id
+            ORDER BY created_at DESC, id DESC
+            FETCH FIRST 1 ROWS ONLY
+            """,
+            {"request_id": request_id},
+        ),
+    )
+
+
+@app.route("/owner/admin-requests/<int:request_id>/approve", methods=["POST"])
+@owner_required
 def approve_admin_request(request_id):
     request_row = get_admin_request_by_id(request_id)
     if not request_row:
         flash("That admin access request could not be found.", "error")
-        return redirect(url_for("admin_dashboard") + "#admin-access-requests")
+        return redirect(url_for("owner_admin_requests"))
 
     if (request_row.get("STATUS") or "").lower() == "rejected":
         flash("Rejected requests cannot be approved without a new request.", "error")
-        return redirect(url_for("admin_dashboard") + "#admin-access-requests")
+        return redirect(url_for("owner_admin_request_detail", request_id=request_id))
 
     try:
         access_code, expires_at = create_admin_access_code(request_row)
     except RuntimeError as error:
         flash(str(error), "error")
-        return redirect(url_for("admin_dashboard") + "#admin-access-requests")
+        return redirect(url_for("owner_admin_request_detail", request_id=request_id))
 
-    email_sent, delivery_message = send_admin_access_code_email(request_row["EMAIL"], access_code, expires_at)
-    log_activity("Admin request approved", f"Admin request #{request_id} approved for {request_row['EMAIL']}")
+    notification_message = f"Your admin request has been approved. You may continue. Admin access code: {access_code}"
+    create_admin_request_notification(request_row, notification_message)
+    email_sent, delivery_message = send_admin_request_status_email(request_row["EMAIL"], True, access_code, expires_at)
+    log_activity("Admin request approved", f"Owner approved admin request #{request_id} for {request_row['EMAIL']}")
     if email_sent:
         flash(f"Request approved. {delivery_message}", "success")
     else:
-        flash(f"Request approved. {delivery_message} Share code {access_code} manually from the dashboard.", "warning")
-    return redirect(url_for("admin_dashboard") + "#admin-access-requests")
+        flash(f"Request approved. {delivery_message} Share code {access_code} manually from the owner portal.", "warning")
+    return redirect(url_for("owner_admin_request_detail", request_id=request_id))
 
 
-@app.route("/admin-requests/<int:request_id>/reject", methods=["POST"])
-@login_required
-@admin_required
+@app.route("/owner/admin-requests/<int:request_id>/reject", methods=["POST"])
+@owner_required
 def reject_admin_request_route(request_id):
     request_row = get_admin_request_by_id(request_id)
     if not request_row:
         flash("That admin access request could not be found.", "error")
-        return redirect(url_for("admin_dashboard") + "#admin-access-requests")
+        return redirect(url_for("owner_admin_requests"))
 
     reject_admin_request(request_id)
-    log_activity("Admin request rejected", f"Admin request #{request_id} rejected for {request_row['EMAIL']}")
+    create_admin_request_notification(request_row, "Your admin request was not approved.")
+    send_admin_request_status_email(request_row["EMAIL"], False)
+    log_activity("Admin request rejected", f"Owner rejected admin request #{request_id} for {request_row['EMAIL']}")
     flash("The admin access request was rejected.", "success")
-    return redirect(url_for("admin_dashboard") + "#admin-access-requests")
+    return redirect(url_for("owner_admin_request_detail", request_id=request_id))
 
 
 @app.route("/manager-dashboard")
