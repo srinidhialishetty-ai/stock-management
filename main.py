@@ -2616,12 +2616,6 @@ def authenticate_from_demo_users(username, password):
 
 
 def authenticate_user(username, password):
-    if username.lower() in DEMO_USERS:
-        demo_auth = authenticate_from_demo_users(username, password)
-        if demo_auth:
-            print(f"[AUTH] Logged in using built-in account: {username}")
-            return demo_auth
-
     database_auth = authenticate_from_database(username, password)
     if database_auth:
         print(f"[AUTH] Logged in using database account: {username}")

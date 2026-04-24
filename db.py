@@ -6,9 +6,17 @@ from pathlib import Path
 
 from werkzeug.security import generate_password_hash
 
-try:
-    import oracledb
-except ImportError:  # pragma: no cover
+
+def oracle_requested():
+    return os.getenv("USE_ORACLE", "false").strip().lower() in {"1", "true", "yes"}
+
+
+if oracle_requested():
+    try:
+        import oracledb
+    except ImportError:  # pragma: no cover
+        oracledb = None
+else:
     oracledb = None
 
 
@@ -37,7 +45,7 @@ OWNER_SEED_USERS = (
 
 
 def using_oracle():
-    if os.getenv("USE_ORACLE", "false").lower() not in {"1", "true", "yes"}:
+    if not oracle_requested():
         return False
     if oracledb is None:
         return False
@@ -50,6 +58,8 @@ def using_oracle():
 
 
 def get_connection():
+    if not using_oracle():
+        raise RuntimeError("Oracle is disabled or unavailable.")
     return oracledb.connect(**DB_CONFIG)
 
 
@@ -453,7 +463,7 @@ def safe_execute(query, params=None):
         except Exception as error:
             if oracledb is not None and isinstance(error, oracledb.IntegrityError):
                 return False, "This record already exists or violates a required database rule.", 0
-            return False, "The database is unavailable right now. Please verify your Oracle connection and try again.", 0
+            return False, "The database is unavailable right now. Please try again later.", 0
 
     initialize_sqlite()
     connection = get_sqlite_connection()
@@ -465,7 +475,7 @@ def safe_execute(query, params=None):
     except sqlite3.IntegrityError:
         return False, "This record already exists or violates a required database rule.", 0
     except Exception:
-        return False, "The local preview database could not process that request.", 0
+        return False, "The database could not process that request.", 0
     finally:
         cursor.close()
         connection.close()
@@ -921,7 +931,7 @@ def insert_inventory_rows(user_id, rows):
         return True, f"{len(rows)} records uploaded successfully."
     except Exception:
         connection.rollback()
-        return False, "The local preview database could not save the uploaded rows."
+        return False, "The database could not save the uploaded rows."
     finally:
         cursor.close()
         connection.close()
