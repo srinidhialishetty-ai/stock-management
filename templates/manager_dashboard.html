@@ -71,4 +71,30 @@
         </div>
     </article>
 </section>
+
+<section class="feature-card">
+    <div class="section-row">
+        <h3>Inventory overview</h3>
+        <a class="btn btn-secondary" href="{{ url_for('manage_data') }}">Open Inventory</a>
+    </div>
+    <div class="table-shell">
+        <table>
+            <thead><tr><th>Product</th><th>Category</th><th>Qty</th><th>Reorder</th><th>Branch</th><th>Supplier</th></tr></thead>
+            <tbody>
+                {% for row in recent_rows %}
+                <tr>
+                    <td>{{ row.PRODUCT_NAME }}</td>
+                    <td>{{ row.CATEGORY }}</td>
+                    <td class="{% if row.QUANTITY <= 10 %}low-stock{% endif %}">{{ row.QUANTITY }}</td>
+                    <td>{{ row.REORDER_LEVEL or 10 }}</td>
+                    <td>{{ row.BRANCH_NAME or '-' }}</td>
+                    <td>{{ row.SUPPLIER_NAME or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6">No inventory records available yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
 {% endblock %}

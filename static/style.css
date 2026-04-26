@@ -414,6 +414,16 @@ body.theme-night .flash-info { background: rgba(80, 172, 255, 0.14); color: #d7e
     flex-wrap: wrap;
 }
 
+.admin-manager-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.admin-manager-form .form-actions {
+    align-items: end;
+}
+
 .hero-stats {
     margin-top: 18px;
 }
@@ -1245,6 +1255,7 @@ body.theme-night .cart-item {
     .feature-showcase,
     .standout-section,
     .auth-shell,
+    .admin-manager-form,
     .action-grid {
         grid-template-columns: 1fr;
     }

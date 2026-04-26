@@ -157,7 +157,7 @@ def admin_required(view_func):
             return redirect(url_for("login"))
         if session.get("role") != "admin":
             flash("Access denied. This tool is available only to administrators.", "error")
-            return redirect(url_for("user_dashboard" if session.get("role") == "user" else "guest_dashboard"))
+            return redirect_for_role(session.get("role"))
         return view_func(*args, **kwargs)
 
     return wrapped
@@ -2687,9 +2687,12 @@ def login():
             flash("Invalid username or password", "error")
             return render_template("login.html", auth_view=auth_view, auth_mode=auth_mode)
 
-        authenticated = authenticate_user(username, password)
+        authenticated = authenticate_from_database(username, password) if auth_view == "manager" else authenticate_user(username, password)
         if not authenticated:
-            flash("Invalid username or password", "error")
+            flash("Invalid manager credentials" if auth_view == "manager" else "Invalid username or password", "error")
+            return render_template("login.html", auth_view=auth_view, auth_mode=auth_mode)
+        if auth_view == "manager" and str(authenticated.get("role") or "").strip().lower() != "manager":
+            flash("Invalid manager credentials", "error")
             return render_template("login.html", auth_view=auth_view, auth_mode=auth_mode)
         if is_allowed_owner_account(authenticated.get("username"), authenticated.get("role")):
             flash("Owner accounts must use the protected owner login.", "error")
@@ -2998,6 +3001,38 @@ def reports():
     return redirect(url_for("admin_dashboard") + "#reports")
 
 
+@app.route("/admin/managers/create", methods=["POST"])
+@login_required
+@admin_required
+def create_manager_account():
+    manager_name = request.form.get("manager_name", "").strip()
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "").strip()
+    confirm_password = request.form.get("confirm_password", "").strip()
+    email = normalize_email(request.form.get("email", ""))
+
+    if not manager_name or not username or not password or not confirm_password:
+        flash("Manager name, username, password, and confirmation are required.", "error")
+        return redirect(url_for("admin_dashboard") + "#create-manager")
+
+    if password != confirm_password:
+        flash("Password and confirm password do not match.", "error")
+        return redirect(url_for("admin_dashboard") + "#create-manager")
+
+    if get_user_by_username(username):
+        flash("That username already exists. Please choose another one.", "error")
+        return redirect(url_for("admin_dashboard") + "#create-manager")
+
+    success, message, _ = create_user(username, generate_password_hash(password), "manager", email or None)
+    if not success:
+        flash(message or "We could not create the manager account right now.", "error")
+        return redirect(url_for("admin_dashboard") + "#create-manager")
+
+    log_activity("Manager account created", f"Admin created manager account {username} for {manager_name}")
+    flash("Manager account created successfully.", "success")
+    return redirect(url_for("admin_dashboard") + "#create-manager")
+
+
 @app.route("/owner-dashboard")
 @owner_required
 def owner_dashboard():
@@ -3211,7 +3246,7 @@ def products():
 
 @app.route("/manage-data")
 @login_required
-@admin_required
+@admin_or_manager_required
 def manage_data():
     rows = get_active_rows()
     return render_template("manage_data.html", rows=rows[:100])

@@ -2,14 +2,15 @@
 {% block title %}Manage Data | Stock Management with Inventory Analysis{% endblock %}
 {% block content %}
 <section class="page-header">
-    <span class="eyebrow">Admin data management</span>
-    <h1>Edit and delete inventory records.</h1>
-    <p>These controls are admin-only and affect saved inventory data.</p>
+    <span class="eyebrow">{% if current_user.role == 'manager' %}Inventory overview{% else %}Admin data management{% endif %}</span>
+    <h1>{% if current_user.role == 'manager' %}Review inventory records.{% else %}Edit and delete inventory records.{% endif %}</h1>
+    <p>{% if current_user.role == 'manager' %}Managers can view saved inventory, stock levels, branches, and suppliers without changing admin-owned data.{% else %}These controls are admin-only and affect saved inventory data.{% endif %}</p>
 </section>
 
 <section class="feature-card">
     <div class="section-row">
         <h3>Inventory records</h3>
+        {% if current_user.role == 'admin' %}
         <div class="form-actions">
             <form method="post" action="{{ url_for('repair_categories') }}">
                 <button class="btn btn-secondary" type="submit">Repair Categories</button>
@@ -22,11 +23,12 @@
             </form>
             <a class="btn btn-primary" href="{{ url_for('upload') }}">Add Data</a>
         </div>
+        {% endif %}
     </div>
     <div class="table-shell">
         <table>
             <thead>
-                <tr><th>Product</th><th>Category</th><th>Price</th><th>Quantity</th><th>Reorder</th><th>Branch</th><th>Supplier</th><th>Date</th><th>Actions</th></tr>
+                <tr><th>Product</th><th>Category</th><th>Price</th><th>Quantity</th><th>Reorder</th><th>Branch</th><th>Supplier</th><th>Date</th>{% if current_user.role == 'admin' %}<th>Actions</th>{% endif %}</tr>
             </thead>
             <tbody>
                 {% for row in rows %}
@@ -39,6 +41,7 @@
                     <td>{{ row.BRANCH_NAME or '-' }}</td>
                     <td>{{ row.SUPPLIER_NAME or '-' }}</td>
                     <td>{{ row.ENTRY_DATE or '-' }}</td>
+                    {% if current_user.role == 'admin' %}
                     <td>
                         <div class="row-actions">
                             <a href="{{ url_for('edit_data', row_id=row.ID) }}">Edit</a>
@@ -47,9 +50,10 @@
                             </form>
                         </div>
                     </td>
+                    {% endif %}
                 </tr>
                 {% else %}
-                <tr><td colspan="9">No records available yet.</td></tr>
+                <tr><td colspan="{% if current_user.role == 'admin' %}9{% else %}8{% endif %}">No records available yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
