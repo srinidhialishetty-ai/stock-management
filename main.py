@@ -1001,12 +1001,15 @@ def sample_category_values(dataframe, mapping, limit=5):
 
 def log_category_mapping_debug(dataframe, uploaded_headers, mapping, rows=None):
     metadata = dataframe.get("metadata", {}) if isinstance(dataframe, dict) else {}
-    print("Upload headers detected:", uploaded_headers)
-    print("Upload headers normalized:", metadata.get("normalized_headers", [normalize_excel_header(header) for header in uploaded_headers]))
-    print("Mapped category source column:", mapping.get("category") or "NOT FOUND")
-    print("First category values read:", sample_category_values(dataframe, mapping))
+    app.logger.debug("Upload headers detected: %s", uploaded_headers)
+    app.logger.debug(
+        "Upload headers normalized: %s",
+        metadata.get("normalized_headers", [normalize_excel_header(header) for header in uploaded_headers]),
+    )
+    app.logger.debug("Mapped category source column: %s", mapping.get("category") or "NOT FOUND")
+    app.logger.debug("First category values read: %s", sample_category_values(dataframe, mapping))
     if rows is not None:
-        print("Category save confirmation:", [row.get("category") for row in rows[:5]])
+        app.logger.debug("Category save confirmation: %s", [row.get("category") for row in rows[:5]])
 
 
 def prepare_rows_for_save(rows):
@@ -1028,8 +1031,8 @@ def prepare_rows_for_save(rows):
                 "date": str(row.get("date", "") or datetime.now().strftime("%Y-%m-%d")).strip(),
             }
         )
-    print("Raw category values before save:", raw_categories)
-    print("Cleaned category values before insert:", [row.get("category") for row in prepared[:8]])
+    app.logger.debug("Raw category values before save: %s", raw_categories)
+    app.logger.debug("Cleaned category values before insert: %s", [row.get("category") for row in prepared[:8]])
     return prepared
 
 
@@ -1190,7 +1193,7 @@ def save_uploaded_rows(rows, report_batch=None):
         guest_rows = session.get("guest_inventory_rows", [])
         guest_rows.extend(rows)
         session["guest_inventory_rows"] = guest_rows
-        print("Final stored category values:", [row.get("category") for row in rows[:8]])
+        app.logger.debug("Final stored category values: %s", [row.get("category") for row in rows[:8]])
         return True, f"{len(rows)} rows uploaded for guest analytics. They will not be saved permanently."
 
     success, message = insert_inventory_rows(session.get("user_id"), rows)
@@ -1206,8 +1209,8 @@ def save_uploaded_rows(rows, report_batch=None):
             """,
             {"report_id": report_batch["report_id"]},
         )
-        print("Rows stored for uploaded report:", stored_count.get("ROW_COUNT", 0) if stored_count else 0)
-    print("Final stored category values:", [row.get("category") for row in rows[:8]])
+        app.logger.debug("Rows stored for uploaded report: %s", stored_count.get("ROW_COUNT", 0) if stored_count else 0)
+    app.logger.debug("Final stored category values: %s", [row.get("category") for row in rows[:8]])
     return True, message
 
 
@@ -1677,8 +1680,11 @@ def build_business_analytics(inventory_rows, sales_rows):
         {"category": category, "value": value, "stock": category_stock.get(category, 0)}
         for category, value in sorted(category_value.items(), key=lambda item: item[1], reverse=True)
     ]
-    print("Analytics category stock counts:", category_stock)
-    print("Analytics category inventory values:", {category: round(value, 2) for category, value in category_value.items()})
+    app.logger.debug("Analytics category stock counts: %s", category_stock)
+    app.logger.debug(
+        "Analytics category inventory values: %s",
+        {category: round(value, 2) for category, value in category_value.items()},
+    )
 
     top_selling_product = fast_items[0]["product_name"] if fast_items else "No orders yet"
     total_inventory_value = sum(item["value"] for item in products)
@@ -1935,9 +1941,7 @@ def create_uploaded_report_batch(source_file_name, row_count):
             "status": "active",
         },
     )
-    print("Created report_id:", report_id)
-    print("[CATALOG] Generated uploaded report token:", token)
-    print("Rows assigned to report:", row_count)
+    app.logger.info("Created uploaded report %s with token %s and %s rows.", report_id, token, row_count)
     return {
         "report_id": report_id,
         "title": title,
@@ -2062,7 +2066,7 @@ def resolve_catalog_report_record(catalog_record):
             {"source_report_id": repaired_report["REPORT_ID"], "token": catalog_record["TOKEN"]},
         )
         catalog_record["SOURCE_REPORT_ID"] = repaired_report["REPORT_ID"]
-        print("Repaired shared catalog source_report_id:", repaired_report["REPORT_ID"])
+        app.logger.info("Repaired shared catalog source_report_id: %s", repaired_report["REPORT_ID"])
     return repaired_report
 
 
@@ -2079,7 +2083,7 @@ def create_or_refresh_shared_catalog(report_id=None, title=None):
         )
     token = uploaded_report["TOKEN"] if uploaded_report else uuid4().hex[:16]
     catalog_title = uploaded_report["TITLE"] if uploaded_report else (title or "Shared Inventory Catalog")
-    print("[CATALOG] Saving shared catalog token:", token, "for report:", report_id)
+    app.logger.debug("Saving shared catalog token %s for report %s", token, report_id)
     existing = fetch_one(
         """
         SELECT share_id, token
@@ -2131,9 +2135,9 @@ def attach_qr_to_shared_catalog(catalog):
 
 def get_shared_catalog_by_token(token):
     normalized_token = normalize_catalog_token(token)
-    print("[CATALOG] DB lookup token:", normalized_token or "<empty>")
+    app.logger.debug("Shared catalog DB lookup token: %s", normalized_token or "<empty>")
     if not normalized_token:
-        print("[CATALOG] DB lookup result: not found")
+        app.logger.debug("Shared catalog DB lookup result: not found")
         return None
     catalog_record = fetch_one(
         """
@@ -2143,7 +2147,7 @@ def get_shared_catalog_by_token(token):
         """,
         {"token": normalized_token, "status": "active"},
     )
-    print("[CATALOG] DB lookup result:", "found" if catalog_record else "not found")
+    app.logger.debug("Shared catalog DB lookup result: %s", "found" if catalog_record else "not found")
     return catalog_record
 
 
@@ -2181,8 +2185,8 @@ def build_analytics_link(report_id):
 
 def extract_token_from_input(value):
     token = normalize_catalog_token(value)
-    print("[CATALOG] Received token input:", str(value or "").strip())
-    print("[CATALOG] Normalized token input:", token or "<empty>")
+    app.logger.debug("Received catalog token input: %s", str(value or "").strip())
+    app.logger.debug("Normalized catalog token input: %s", token or "<empty>")
     return token
 
 
@@ -2597,16 +2601,16 @@ def reset_uploaded_inventory_data():
 
 def authenticate_from_database(username, password):
     try:
-        print(f"[AUTH] Checking database user: {username}")
+        app.logger.debug("Checking database user: %s", username)
         user, db_ok = try_get_user_by_username(username)
         if not db_ok:
-            print(f"[AUTH] Database lookup failed for user: {username}")
+            app.logger.error("Database lookup failed for user: %s", username)
             return None
         if not user:
-            print(f"[AUTH] No database user found: {username}")
+            app.logger.debug("No database user found: %s", username)
             return None
         password_ok = check_password_hash(user["PASSWORD"], password)
-        print(f"[AUTH] Password hash validation for {username}: {'passed' if password_ok else 'failed'}")
+        app.logger.debug("Password hash validation for %s: %s", username, "passed" if password_ok else "failed")
         if not password_ok:
             return None
         return {
@@ -2615,7 +2619,7 @@ def authenticate_from_database(username, password):
             "role": user["ROLE"],
         }
     except Exception as error:
-        print(f"[AUTH] Database authentication error for {username}: {error}")
+        app.logger.error("Database authentication error for %s: %s", username, error)
         return None
 
 
@@ -2635,12 +2639,12 @@ def authenticate_from_demo_users(username, password):
 def authenticate_user(username, password):
     database_auth = authenticate_from_database(username, password)
     if database_auth:
-        print(f"[AUTH] Logged in using database account: {username}")
+        app.logger.info("Logged in using database account: %s", username)
         return database_auth
 
     demo_auth = authenticate_from_demo_users(username, password)
     if demo_auth:
-        print(f"[AUTH] Fallback demo login succeeded for: {username}")
+        app.logger.info("Fallback demo login succeeded for: %s", username)
     return demo_auth
 
 
@@ -2708,13 +2712,13 @@ def register():
         password = request.form.get("password", "").strip()
         requested_role = request.form.get("role_intent", "user").strip().lower()
         target_role = "user"
-        print(f"[AUTH] Registration attempt for username: {username}")
+        app.logger.debug("Registration attempt for username: %s", username)
         if not username or not password:
             flash("Username and password are required.", "error")
             return render_template("login.html", auth_view=auth_view, auth_mode="register")
 
         if get_user_by_username(username):
-            print(f"[AUTH] Registration blocked, duplicate username: {username}")
+            app.logger.info("Registration blocked for duplicate username: %s", username)
             flash("That username already exists. Please choose another one.", "error")
             return render_template("login.html", auth_view=auth_view, auth_mode="register")
 
@@ -2729,13 +2733,13 @@ def register():
             target_role = "admin"
 
         success, message, _ = create_user(username, generate_password_hash(password), target_role, normalize_email(email) or None)
-        print(f"[AUTH] Registration insert for {username}: {'succeeded' if success else 'failed'}")
+        app.logger.info("Registration insert for %s: %s", username, "succeeded" if success else "failed")
         if not success:
             flash(message or "We could not create your account right now.", "error")
             return render_template("login.html", auth_view=auth_view, auth_mode="register")
 
         user = get_user_by_username(username)
-        print(f"[AUTH] Registration fetch-after-insert for {username}: {'found' if user else 'missing'}")
+        app.logger.debug("Registration fetch-after-insert for %s: %s", username, "found" if user else "missing")
         if user:
             set_user_session(user["USER_ID"], user["USERNAME"], user["ROLE"])
         else:
@@ -3671,12 +3675,12 @@ def analytics():
         if active_report_id
         else []
     )
-    print("Active report_id used for analytics:", active_report_id or "NONE")
-    print("Rows fetched for analytics:", len(rows))
+    app.logger.debug("Active report_id used for analytics: %s", active_report_id or "NONE")
+    app.logger.debug("Rows fetched for analytics: %s", len(rows))
     business_analytics = build_business_analytics(rows, sales_rows)
-    print("Low stock rows being used:", [item["product_name"] for item in business_analytics["low_stock"]])
-    print("Top moving rows being used:", [item["product_name"] for item in business_analytics["fast_items"]])
-    print("Slow moving rows being used:", [item["product_name"] for item in business_analytics["slow_items"]])
+    app.logger.debug("Low stock rows being used: %s", [item["product_name"] for item in business_analytics["low_stock"]])
+    app.logger.debug("Top moving rows being used: %s", [item["product_name"] for item in business_analytics["fast_items"]])
+    app.logger.debug("Slow moving rows being used: %s", [item["product_name"] for item in business_analytics["slow_items"]])
     return render_template(
         "analytics.html",
         analytics=business_analytics,
@@ -3717,7 +3721,7 @@ def view_data_lookup():
 @login_required
 def view_data(qr_token):
     normalized_token = normalize_catalog_token(qr_token)
-    print("[CATALOG] /view-data token:", normalized_token or "<empty>")
+    app.logger.debug("/view-data token: %s", normalized_token or "<empty>")
     if get_shared_catalog_by_token(normalized_token):
         return redirect(url_for("catalog", token=normalized_token))
     uploaded_report = get_uploaded_report_by_token(normalized_token)
@@ -3743,18 +3747,18 @@ def view_data(qr_token):
 @login_required
 def catalog(token):
     normalized_token = normalize_catalog_token(token)
-    print("[CATALOG] /catalog token received:", normalized_token or "<empty>")
+    app.logger.debug("/catalog token received: %s", normalized_token or "<empty>")
     catalog_record = get_shared_catalog_by_token(normalized_token)
     if not catalog_record:
         flash("This shared catalog link is invalid or expired. Please ask the admin for a fresh link.", "error")
         return redirect_for_role(session.get("role"))
     resolved_report = resolve_catalog_report_record(catalog_record)
     report_id = resolved_report["REPORT_ID"] if resolved_report else catalog_record.get("SOURCE_REPORT_ID")
-    print("Resolved shared catalog title:", catalog_record.get("TITLE"))
-    print("Report_id resolved from token:", report_id)
+    app.logger.debug("Resolved shared catalog title: %s", catalog_record.get("TITLE"))
+    app.logger.debug("Report_id resolved from token: %s", report_id)
     products = get_catalog_products(report_id)
-    print("Number of products found for report:", len(products))
-    print("First 5 product names fetched:", [product.get("PRODUCT_NAME") for product in products[:5]])
+    app.logger.debug("Number of products found for report: %s", len(products))
+    app.logger.debug("First 5 product names fetched: %s", [product.get("PRODUCT_NAME") for product in products[:5]])
     search = request.args.get("search", "").strip()
     category = request.args.get("category", "").strip()
     stock_level = request.args.get("stock_level", "").strip()
@@ -3762,8 +3766,8 @@ def catalog(token):
     sort_by = request.args.get("sort", "").strip() or "newest"
     filters = build_catalog_filters(products)
     filtered_products = filter_catalog_products(products, search, category, stock_level, branch_name, sort_by)
-    print("Row count fetched before filters:", len(products))
-    print("Row count after filters:", len(filtered_products))
+    app.logger.debug("Row count fetched before filters: %s", len(products))
+    app.logger.debug("Row count after filters: %s", len(filtered_products))
     viewed_reports = session.get("recent_viewed_reports", [])
     summary = {
         "id": catalog_record["TOKEN"],

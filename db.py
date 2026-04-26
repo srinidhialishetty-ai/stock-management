@@ -115,6 +115,18 @@ def initialize_sqlite():
     )
     cursor.execute(
         """
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password TEXT,
+            email TEXT,
+            role TEXT NOT NULL DEFAULT 'user',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS inventory_data (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             report_id TEXT,
@@ -329,6 +341,20 @@ def initialize_sqlite():
     )
     cursor.execute(
         """
+        CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            username TEXT,
+            role TEXT,
+            title TEXT,
+            message TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'unread',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS user_orders (
             order_id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
@@ -368,6 +394,11 @@ def initialize_sqlite():
         "ALTER TABLE password_reset_tokens ADD COLUMN used_at TIMESTAMP",
         "ALTER TABLE admin_request_notifications ADD COLUMN email TEXT",
         "ALTER TABLE admin_request_notifications ADD COLUMN username TEXT",
+        "ALTER TABLE notifications ADD COLUMN user_id INTEGER",
+        "ALTER TABLE notifications ADD COLUMN username TEXT",
+        "ALTER TABLE notifications ADD COLUMN role TEXT",
+        "ALTER TABLE notifications ADD COLUMN title TEXT",
+        "ALTER TABLE notifications ADD COLUMN status TEXT NOT NULL DEFAULT 'unread'",
     ]:
         try:
             cursor.execute(statement)
