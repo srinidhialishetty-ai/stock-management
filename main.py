@@ -1779,11 +1779,11 @@ def normalize_catalog_token(token_value):
     cleaned_value = raw_value.rstrip("/")
     parsed = urlparse(cleaned_value)
     path = (parsed.path or "").rstrip("/")
-    match = re.search(r"/(?:catalog|view-data)/([A-Za-z0-9_-]+)$", path, re.IGNORECASE)
+    match = re.search(r"/(?:catalog|view-data|analytics)/([A-Za-z0-9_-]+)$", path, re.IGNORECASE)
     if match:
         return match.group(1).strip().lower()
 
-    match = re.search(r"(?:^|/)(?:catalog|view-data)/([A-Za-z0-9_-]+)$", cleaned_value, re.IGNORECASE)
+    match = re.search(r"(?:^|/)(?:catalog|view-data|analytics)/([A-Za-z0-9_-]+)$", cleaned_value, re.IGNORECASE)
     if match:
         return match.group(1).strip().lower()
 
@@ -2221,6 +2221,10 @@ def get_shared_catalogs(limit=5):
 
 def build_catalog_link(token):
     return url_for("catalog", token=token, _external=True)
+
+
+def build_public_analytics_link(token):
+    return url_for("public_analytics", token=token, _external=True)
 
 
 def build_analytics_link(report_id):
@@ -3015,6 +3019,7 @@ def admin_dashboard():
             shared_catalogs=safe_route_value("admin_dashboard", "shared_catalogs", lambda: get_shared_catalogs(5), []),
             orders=safe_route_value("admin_dashboard", "orders", lambda: build_order_views(8), []),
             latest_share_link=build_catalog_link(latest_share["TOKEN"]) if latest_share and latest_share.get("TOKEN") else "",
+            latest_analytics_link=build_public_analytics_link(latest_share["TOKEN"]) if latest_share and latest_share.get("TOKEN") else "",
             latest_uploaded_report=latest_uploaded_report,
             recent_activity=safe_route_value("admin_dashboard", "activity", lambda: get_recent_activity(8), []),
         )
@@ -3033,6 +3038,7 @@ def admin_dashboard():
             shared_catalogs=[],
             orders=[],
             latest_share_link="",
+            latest_analytics_link="",
             latest_uploaded_report=None,
             recent_activity=[],
         )
@@ -3748,6 +3754,10 @@ def qr_lookup():
 def analytics():
     active_report = resolve_active_analytics_report()
     active_report_id = active_report["REPORT_ID"] if active_report else None
+    return render_analytics_report(active_report, active_report_id)
+
+
+def render_analytics_report(active_report, active_report_id, public_view=False):
     rows = get_report_inventory_rows(active_report_id, exclude_demo_names=True)
     sales_rows = (
         get_sales_rows_for_report(active_report_id)
@@ -3766,8 +3776,27 @@ def analytics():
         chart_payload=json.dumps(business_analytics["charts"]),
         rows=rows[:8],
         active_report=active_report,
-        report_options=get_uploaded_report_options(10) if session.get("role") in {"admin", "manager"} else [],
+        report_options=get_uploaded_report_options(10) if not public_view and session.get("role") in {"admin", "manager"} else [],
+        public_view=public_view,
     )
+
+
+@app.route("/analytics/<token>")
+def public_analytics(token):
+    ensure_guest_catalog_session()
+    normalized_token = normalize_catalog_token(token)
+    app.logger.debug("/analytics token received: %s", normalized_token or "<empty>")
+    catalog_record, token_status = validate_shared_catalog_token(token)
+    if not catalog_record:
+        if token_status == "expired":
+            flash("This catalog link has expired. Please request a new link.", "error")
+        else:
+            flash("This catalog link is invalid.", "error")
+        return redirect_for_role(session.get("role"))
+
+    resolved_report = resolve_catalog_report_record(catalog_record)
+    report_id = resolved_report["REPORT_ID"] if resolved_report else catalog_record.get("SOURCE_REPORT_ID")
+    return render_analytics_report(resolved_report, report_id, public_view=True)
 
 
 @app.route("/report/<report_id>")

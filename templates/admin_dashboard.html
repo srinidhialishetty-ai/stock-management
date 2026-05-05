@@ -101,8 +101,12 @@
             </label>
             <div class="form-actions top-gap">
                 <a class="btn btn-secondary" href="{{ url_for('catalog', token=latest_share.TOKEN) }}">Preview Catalog</a>
+                <a class="btn btn-secondary" href="{{ latest_analytics_link }}">Generate Analytics Link</a>
                 <a class="btn btn-secondary" href="{{ url_for('orders') }}">View Orders</a>
             </div>
+            <label class="top-gap">Copy analytics link
+                <input type="text" value="{{ latest_analytics_link }}" readonly onclick="this.select()">
+            </label>
         {% else %}
             <p>No shared catalog is active yet. Upload inventory data, then generate a share link for that exact dataset.</p>
         {% endif %}

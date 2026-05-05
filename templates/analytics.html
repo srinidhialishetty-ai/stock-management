@@ -33,7 +33,7 @@
             <div class="soft-empty">No active uploaded report is selected yet.</div>
         {% endif %}
     </article>
-    {% if current_user.role in ['admin', 'manager'] %}
+    {% if not public_view and current_user.role in ['admin', 'manager'] %}
     <article class="feature-card">
         <span class="eyebrow">Report selector</span>
         <h3>Switch uploaded dataset</h3>
@@ -54,14 +54,14 @@
 {% if not analytics.has_data %}
 <section class="empty-state feature-card">
     <span class="eyebrow">No analytics data available yet</span>
-    {% if current_user.role in ['admin', 'manager'] %}
+    {% if not public_view and current_user.role in ['admin', 'manager'] %}
         <h2>Upload inventory to see analytics.</h2>
         <p>Once a real uploaded report is selected, this page will show fast movers, slow movers, category distribution, inventory value, and sales trends only for that report.</p>
     {% else %}
         <h2>No shared analytics report is available yet.</h2>
         <p>Ask the admin for a QR-linked report to view read-only analytics generated from real uploaded data.</p>
     {% endif %}
-    {% if current_user.role == 'admin' %}
+    {% if not public_view and current_user.role == 'admin' %}
         <a class="btn btn-primary" href="{{ url_for('upload') }}">Upload Inventory</a>
     {% else %}
         <a class="btn btn-secondary" href="{{ url_for('dashboard') }}">Back to Dashboard</a>
