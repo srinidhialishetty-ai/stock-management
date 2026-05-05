@@ -182,6 +182,7 @@ def initialize_sqlite():
             source_report_id TEXT,
             qr_filename TEXT,
             status TEXT NOT NULL DEFAULT 'active',
+            expires_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """
@@ -383,6 +384,7 @@ def initialize_sqlite():
         "ALTER TABLE products ADD COLUMN image_url TEXT",
         "ALTER TABLE shared_catalogs ADD COLUMN source_report_id TEXT",
         "ALTER TABLE shared_catalogs ADD COLUMN qr_filename TEXT",
+        "ALTER TABLE shared_catalogs ADD COLUMN expires_at TIMESTAMP",
         "ALTER TABLE admin_requests ADD COLUMN proof_file_path TEXT",
         "ALTER TABLE admin_requests ADD COLUMN reviewed_by INTEGER",
         "ALTER TABLE admin_requests ADD COLUMN reviewed_at TIMESTAMP",
@@ -582,9 +584,11 @@ def ensure_core_tables():
                 source_report_id VARCHAR2(100),
                 qr_filename VARCHAR2(200),
                 status VARCHAR2(30) DEFAULT 'active' NOT NULL,
+                expires_at TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """,
+            "ALTER TABLE shared_catalogs ADD expires_at TIMESTAMP",
             """
             CREATE TABLE uploaded_reports (
                 report_id VARCHAR2(100) PRIMARY KEY,

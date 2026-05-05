@@ -93,6 +93,7 @@
                 {% endif %}
                 <div class="mini-list-row"><span>Catalog title</span><strong>{{ latest_share.TITLE }}</strong></div>
                 <div class="mini-list-row"><span>Status</span><strong>{{ latest_share.STATUS|upper }}</strong></div>
+                <div class="mini-list-row"><span>Expiry</span><strong>{{ latest_share.EXPIRES_AT or 'Never expires' }}</strong></div>
                 <div class="mini-list-row"><span>Token</span><strong>{{ latest_share.TOKEN }}</strong></div>
             </div>
             <label class="top-gap">Copy share link
