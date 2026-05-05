@@ -1772,22 +1772,15 @@ def redirect_for_role(role):
 
 
 def normalize_catalog_token(token_value):
-    raw_value = str(token_value or "").strip()
-    if not raw_value:
-        return ""
+    if not token_value:
+        return None
 
-    cleaned_value = raw_value.rstrip("/")
-    parsed = urlparse(cleaned_value)
-    path = (parsed.path or "").rstrip("/")
-    match = re.search(r"/(?:catalog|view-data|analytics)/([A-Za-z0-9_-]+)$", path, re.IGNORECASE)
-    if match:
-        return match.group(1).strip().lower()
-
-    match = re.search(r"(?:^|/)(?:catalog|view-data|analytics)/([A-Za-z0-9_-]+)$", cleaned_value, re.IGNORECASE)
-    if match:
-        return match.group(1).strip().lower()
-
-    return cleaned_value.strip("/").lower()
+    token = str(token_value).strip()
+    token = token.rstrip("/")
+    if "/" in token:
+        token = token.split("/")[-1]
+    token = token.split("?", 1)[0].split("#", 1)[0].strip()
+    return token or None
 
 
 def has_valid_session_identity():
@@ -2103,7 +2096,7 @@ def create_or_refresh_shared_catalog(report_id=None, title=None):
             """,
             {"report_id": report_id},
         )
-    token = uploaded_report["TOKEN"] if uploaded_report else uuid4().hex[:16]
+    token = normalize_catalog_token(uploaded_report["TOKEN"]) if uploaded_report else uuid4().hex[:16]
     catalog_title = uploaded_report["TITLE"] if uploaded_report else (title or "Shared Inventory Catalog")
     app.logger.debug("Saving shared catalog token %s for report %s", token, report_id)
     existing = fetch_one(
@@ -2157,17 +2150,11 @@ def attach_qr_to_shared_catalog(catalog):
     return get_shared_catalog_by_token(catalog["TOKEN"])
 
 
-def validate_shared_catalog_token(token):
-    raw_input = str(token or "").strip()
+def fetch_shared_catalog_by_token(token):
     normalized_token = normalize_catalog_token(token)
-    app.logger.debug("catalog_token raw_input=%s", raw_input or "<empty>")
-    app.logger.debug("catalog_token normalized_token=%s", normalized_token or "<empty>")
     if not normalized_token:
-        app.logger.debug("catalog_token token_found=false")
-        app.logger.debug("catalog_token expires_at=None")
-        app.logger.debug("catalog_token validation_result=invalid")
-        return None, "invalid"
-    catalog_record = fetch_one(
+        return None
+    return fetch_one(
         """
         SELECT share_id, admin_user_id, title, token, source_report_id, qr_filename, status, expires_at, created_at
         FROM shared_catalogs
@@ -2175,23 +2162,49 @@ def validate_shared_catalog_token(token):
         """,
         {"token": normalized_token, "status": "active"},
     )
+
+
+def get_valid_shared_catalog(token, include_status=False):
+    raw_input = str(token or "").strip()
+    normalized_token = normalize_catalog_token(token)
+    print("RAW INPUT:", raw_input)
+    print("NORMALIZED TOKEN:", normalized_token)
+    app.logger.debug("catalog_token raw_input=%s", raw_input or "<empty>")
+    app.logger.debug("catalog_token normalized_token=%s", normalized_token or "<empty>")
+    if not normalized_token:
+        print("TOKEN FOUND:", False)
+        print("EXPIRES AT:", None)
+        app.logger.debug("catalog_token token_found=false")
+        app.logger.debug("catalog_token expires_at=None")
+        app.logger.debug("catalog_token validation_result=invalid")
+        return (None, "invalid") if include_status else None
+
+    catalog_record = fetch_shared_catalog_by_token(normalized_token)
     token_found = bool(catalog_record)
     expires_at = catalog_record.get("EXPIRES_AT") if catalog_record else None
+    print("TOKEN FOUND:", token_found)
+    print("EXPIRES AT:", expires_at if expires_at else None)
     app.logger.debug("catalog_token token_found=%s", str(token_found).lower())
     app.logger.debug("catalog_token expires_at=%s", expires_at if expires_at else "None")
     if not catalog_record:
         app.logger.debug("catalog_token validation_result=invalid")
-        return None, "invalid"
-    if is_shared_catalog_expired(catalog_record.get("EXPIRES_AT")):
+        print("validation_result:", "invalid")
+        return (None, "invalid") if include_status else None
+    if is_shared_catalog_expired(expires_at):
         app.logger.debug("catalog_token validation_result=expired")
-        return None, "expired"
+        print("validation_result:", "expired")
+        return (None, "expired") if include_status else None
     app.logger.debug("catalog_token validation_result=valid")
-    return catalog_record, "valid"
+    print("validation_result:", "valid")
+    return (catalog_record, "valid") if include_status else catalog_record
+
+
+def validate_shared_catalog_token(token):
+    return get_valid_shared_catalog(token, include_status=True)
 
 
 def get_shared_catalog_by_token(token):
-    catalog_record, _status = validate_shared_catalog_token(token)
-    return catalog_record
+    return get_valid_shared_catalog(token)
 
 
 def get_latest_shared_catalog():
@@ -3786,13 +3799,9 @@ def public_analytics(token):
     ensure_guest_catalog_session()
     normalized_token = normalize_catalog_token(token)
     app.logger.debug("/analytics token received: %s", normalized_token or "<empty>")
-    catalog_record, token_status = validate_shared_catalog_token(token)
+    catalog_record, token_status = get_valid_shared_catalog(token, include_status=True)
     if not catalog_record:
-        if token_status == "expired":
-            flash("This catalog link has expired. Please request a new link.", "error")
-        else:
-            flash("This catalog link is invalid.", "error")
-        return redirect_for_role(session.get("role"))
+        return "Invalid or expired token", 404
 
     resolved_report = resolve_catalog_report_record(catalog_record)
     report_id = resolved_report["REPORT_ID"] if resolved_report else catalog_record.get("SOURCE_REPORT_ID")
@@ -3823,7 +3832,7 @@ def view_data_lookup():
     if not token:
         flash("Please enter a report QR token or shared report link.", "error")
         return redirect(url_for("user_dashboard" if session.get("role") == "user" else "guest_dashboard"))
-    catalog_record, token_status = validate_shared_catalog_token(raw_input)
+    catalog_record, token_status = get_valid_shared_catalog(raw_input, include_status=True)
     if catalog_record:
         return redirect(url_for("catalog", token=token))
     if token_status == "expired":
@@ -3833,12 +3842,23 @@ def view_data_lookup():
     return redirect(url_for("user_dashboard" if session.get("role") == "user" else "guest_dashboard"))
 
 
+@app.route("/access-catalog", methods=["POST"])
+def access_catalog():
+    raw_input = request.form.get("token") or request.form.get("qr_token", "")
+    token = normalize_catalog_token(raw_input)
+    catalog_record, _token_status = get_valid_shared_catalog(raw_input, include_status=True)
+    if not catalog_record:
+        flash("Invalid or expired token", "error")
+        return redirect(url_for("guest_dashboard"))
+    return redirect(url_for("catalog", token=token))
+
+
 @app.route("/view-data/<qr_token>")
 def view_data(qr_token):
     ensure_guest_catalog_session()
     normalized_token = normalize_catalog_token(qr_token)
     app.logger.debug("/view-data token: %s", normalized_token or "<empty>")
-    catalog_record, token_status = validate_shared_catalog_token(qr_token)
+    catalog_record, token_status = get_valid_shared_catalog(qr_token, include_status=True)
     if catalog_record:
         return redirect(url_for("catalog", token=normalized_token))
     uploaded_report = get_uploaded_report_by_token(normalized_token)
@@ -3868,13 +3888,9 @@ def catalog(token):
     ensure_guest_catalog_session()
     normalized_token = normalize_catalog_token(token)
     app.logger.debug("/catalog token received: %s", normalized_token or "<empty>")
-    catalog_record, token_status = validate_shared_catalog_token(normalized_token)
+    catalog_record, token_status = get_valid_shared_catalog(token, include_status=True)
     if not catalog_record:
-        if token_status == "expired":
-            flash("This catalog link has expired. Please request a new link.", "error")
-        else:
-            flash("This catalog link is invalid.", "error")
-        return redirect_for_role(session.get("role"))
+        return "Invalid or expired token", 404
     resolved_report = resolve_catalog_report_record(catalog_record)
     report_id = resolved_report["REPORT_ID"] if resolved_report else catalog_record.get("SOURCE_REPORT_ID")
     app.logger.debug("Resolved shared catalog title: %s", catalog_record.get("TITLE"))
@@ -3917,6 +3933,7 @@ def catalog(token):
         selected_sort=sort_by,
         cart=cart_summary(),
         orders=build_order_views(6) if session.get("role") == "user" else [],
+        public_view=True,
     )
 
 
@@ -3928,7 +3945,7 @@ def add_to_cart(product_id):
         return redirect_for_role(session.get("role"))
 
     token = request.form.get("share_token", "").strip()
-    catalog_record, token_status = validate_shared_catalog_token(token)
+    catalog_record, token_status = get_valid_shared_catalog(token, include_status=True)
     if not catalog_record:
         if token_status == "expired":
             flash("This catalog link has expired. Please request a new link.", "error")

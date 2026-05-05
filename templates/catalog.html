@@ -47,16 +47,16 @@
                 <span class="eyebrow">Checkout flow</span>
                 <h3>Your cart</h3>
             </div>
-            {% if current_user.role == 'user' %}
+            {% if not public_view and current_user.role == 'user' %}
                 <a class="btn btn-primary" href="{{ url_for('cart') }}">Open Cart{% if cart.count %} ({{ cart.count }}){% endif %}</a>
             {% endif %}
         </div>
-        {% if current_user.role == 'user' %}
+        {% if not public_view and current_user.role == 'user' %}
             <div class="mini-list">
                 <div class="mini-list-row"><span>Items selected</span><strong>{{ cart.count }}</strong></div>
                 <div class="mini-list-row"><span>Current subtotal</span><strong>Rs. {{ "%.2f"|format(cart.subtotal) }}</strong></div>
             </div>
-        {% elif current_user.role == 'admin' or current_user.role == 'manager' %}
+        {% elif not public_view and (current_user.role == 'admin' or current_user.role == 'manager') %}
             <p class="auth-helper">Management preview only. Users checkout from this shared catalog through cart and final confirmation.</p>
         {% else %}
             <p class="auth-helper">Guest access is read-only. Sign in as a user to add products to cart and place orders.</p>
@@ -143,7 +143,7 @@
                         {% endif %}
                     </div>
                 </div>
-                {% if current_user.role == 'user' %}
+                {% if not public_view and current_user.role == 'user' %}
                     <form class="catalog-order-form" method="post" action="{{ url_for('add_to_cart', product_id=product.ID) }}">
                         <input type="hidden" name="share_token" value="{{ catalog.TOKEN }}">
                         <label>Quantity
@@ -152,7 +152,7 @@
                         <button class="btn btn-primary" type="submit" {% if product.QUANTITY <= 0 %}disabled{% endif %}>Add to Cart</button>
                     </form>
                 {% else %}
-                    <p class="auth-helper">{% if current_user.role == 'guest' %}Read-only preview{% else %}Management preview{% endif %}</p>
+                    <p class="auth-helper">{% if public_view or current_user.role == 'guest' %}Read-only preview{% else %}Management preview{% endif %}</p>
                 {% endif %}
             </article>
         {% else %}
@@ -169,7 +169,7 @@
     </div>
 </section>
 
-{% if current_user.role == 'user' %}
+{% if not public_view and current_user.role == 'user' %}
 <section class="feature-card">
     <div class="section-row">
         <h3>Your recent orders from shared catalogs</h3>

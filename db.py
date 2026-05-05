@@ -99,6 +99,7 @@ def initialize_sqlite():
     if SQLITE_INITIALIZED:
         return
 
+    print("DB path:", SQLITE_PATH)
     connection = get_sqlite_connection()
     cursor = connection.cursor()
     cursor.execute(
