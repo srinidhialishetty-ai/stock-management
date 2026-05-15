@@ -27,7 +27,7 @@
         {% if latest_share %}
             <div class="form-actions">
                 <a class="btn btn-primary" href="{{ url_for('catalog', token=latest_share.TOKEN) }}">View Latest Shared Catalog</a>
-                <a class="btn btn-secondary" href="{{ url_for('analytics') }}">Catalog Analytics</a>
+                <a class="btn btn-secondary" href="{{ latest_analytics_link }}">Catalog Analytics</a>
             </div>
             <p class="auth-helper top-gap">Latest shared link: {{ latest_share_link }}</p>
         {% endif %}

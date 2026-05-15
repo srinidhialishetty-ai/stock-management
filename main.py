@@ -3284,6 +3284,7 @@ def user_dashboard():
         latest_share_report=latest_share_report,
         latest_share_products=latest_share_products,
         latest_share_link=build_catalog_link(latest_share["TOKEN"]) if latest_share else "",
+        latest_analytics_link=build_public_analytics_link(latest_share["TOKEN"]) if latest_share else "",
         orders=build_order_views(8),
         cart=cart_summary(),
     )
@@ -3312,6 +3313,7 @@ def guest_dashboard():
         latest_share_report=latest_share_report,
         latest_share_products=latest_share_products,
         latest_share_link=build_catalog_link(latest_share["TOKEN"]) if latest_share else "",
+        latest_analytics_link=build_public_analytics_link(latest_share["TOKEN"]) if latest_share else "",
     )
 
 

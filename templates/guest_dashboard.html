@@ -35,7 +35,10 @@
             {% endif %}
         </div>
         {% if latest_share %}
-            <a class="btn btn-secondary" href="{{ url_for('catalog', token=latest_share.TOKEN) }}">Open Full Catalog</a>
+            <div class="form-actions">
+                <a class="btn btn-secondary" href="{{ url_for('catalog', token=latest_share.TOKEN) }}">Open Full Catalog</a>
+                <a class="btn btn-secondary" href="{{ latest_analytics_link }}">View Analytics</a>
+            </div>
         {% endif %}
     </div>
     {% if latest_share and latest_share_products %}
