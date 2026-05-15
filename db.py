@@ -29,6 +29,7 @@ DB_CONFIG = {
 BASE_DIR = Path(__file__).resolve().parent
 # UPDATED: Use a stable SQLite file inside the project directory for Render demo deployments.
 SQLITE_PATH = Path(os.getenv("SQLITE_PATH", str(BASE_DIR / "data" / "render_demo.db")))
+DB_PATH = SQLITE_PATH
 SQLITE_INITIALIZED = False
 DEMO_USERS = [
     ("admin", "admin123", "admin"),
@@ -99,7 +100,7 @@ def initialize_sqlite():
     if SQLITE_INITIALIZED:
         return
 
-    print("DB path:", SQLITE_PATH)
+    print("DB path:", DB_PATH)
     connection = get_sqlite_connection()
     cursor = connection.cursor()
     cursor.execute(
